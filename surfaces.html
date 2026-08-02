@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>weave · command surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  /* cold start — a scrim over the resolving HUD, not an opaque curtain.
+     You can see the interface materialise behind it, and any key or click skips. */
+  .boot {
+    position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
+    background: color-mix(in oklab, var(--bg) 74%, transparent);
+    backdrop-filter: blur(7px);
+    transition: opacity 420ms var(--ease-standard);
+  }
+  .boot-inner {
+    width: min(460px, calc(100vw - 48px));
+    background: color-mix(in oklab, var(--surface) 88%, var(--bg));
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: var(--elev-raised); padding: var(--space-5) var(--space-6) var(--space-6);
+  }
+  .boot .meta { line-height: 1.75; }
+  .boot.gone { opacity: 0; pointer-events: none; }
+
+  /* ── the standing brief ─────────────────────────────────────────── */
+  .brief {
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+    gap: var(--space-12); align-items: start;
+    padding: var(--space-12) var(--container-gutter-desktop) var(--space-8);
+    max-width: 1440px; margin-inline: auto;
+  }
+  .greeting {
+    font-size: clamp(26px, 3.4vw, var(--text-2xl)); font-weight: 700; color: var(--fg);
+    letter-spacing: var(--tracking-display); line-height: 1.15; max-width: 20ch;
+  }
+
+  /* the decision card — the one object on the page that matters */
+  .decision {
+    margin-top: var(--space-6);
+    background: var(--surface);
+    border: 1px solid var(--border); border-left: 3px solid var(--warn);
+    border-radius: var(--radius-md); overflow: hidden;
+    box-shadow: var(--elev-raised);
+  }
+  .decision > header {
+    display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--border-soft);
+    background: color-mix(in oklab, var(--warn) 7%, transparent);
+  }
+  .decision .body { padding: var(--space-6); }
+  .decision .what { font-size: var(--text-lg); color: var(--fg); line-height: 1.4; }
+  .decision .facts { display: grid; gap: 9px; margin-top: var(--space-5); }
+  .decision .fact { display: grid; grid-template-columns: 15px 1fr; gap: var(--space-3); align-items: start; }
+  .decision .fact svg { width: 15px; height: 15px; margin-top: 3px; }
+  .decision .fact p { font-size: var(--text-sm); color: var(--fg-2); }
+  .decision footer {
+    display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+    padding: var(--space-4) var(--space-6); border-top: 1px solid var(--border-soft);
+    background: color-mix(in oklab, var(--bg) 40%, transparent);
+  }
+  .held { font-variant-numeric: tabular-nums; }
+  .allclear { margin-top: var(--space-5); font-size: var(--text-sm); color: var(--muted); }
+
+  /* voice column */
+  .voice-col { display: grid; justify-items: center; gap: var(--space-4); padding-top: var(--space-4); }
+  .orb-lg { width: 148px; height: 148px; }
+  .orb-lg .core { width: 46px; height: 46px; }
+  .orb-lg .ring.r2 { inset: 14px; }
+  .orb-lg .ring.r3 { inset: 30px; }
+  .ask { text-align: center; font-size: var(--text-sm); color: var(--muted); max-width: 30ch; }
+
+  /* ── vitals strip — reassurance, not headline ───────────────────── */
+  .strip {
+    max-width: 1440px; margin-inline: auto;
+    padding: 0 var(--container-gutter-desktop) var(--space-12);
+  }
+  .strip-inner {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: color-mix(in oklab, var(--surface) 70%, var(--bg));
+    overflow: hidden;
+  }
+  .svc { padding: var(--space-4) var(--space-5); border-right: 1px solid var(--border-soft); }
+  .svc:last-child { border-right: 0; }
+  .svc .top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .svc .n { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg); }
+  .svc .d { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); margin-top: 5px; display: block; }
+  .svc .big { font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; line-height: 1; }
+
+  /* ── surfaces — asymmetric, because they are not equal ──────────── */
+  .surfaces { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); }
+  .surface {
+    display: flex; flex-direction: column; padding: var(--space-6);
+    border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface);
+    transition: border-color var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+  }
+  .surface:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--elev-raised); }
+  .surface:hover .mark { color: var(--accent); }
+  .surface .mark { width: 28px; height: 28px; color: var(--muted); margin-bottom: var(--space-4); transition: color var(--motion-base) var(--ease-standard); }
+  .surface h3 { margin-bottom: 6px; }
+  .surface p { font-size: var(--text-sm); color: var(--muted); }
+  .surface .go { margin-top: auto; padding-top: var(--space-5); }
+  .surface-primary { background: color-mix(in oklab, var(--surface-warm) 62%, var(--surface)); border-color: var(--border); }
+  .surface-primary .mark { color: var(--accent); }
+
+  @media (max-width: 1100px) {
+    .brief { grid-template-columns: 1fr; gap: var(--space-8); padding-block: var(--space-8) var(--space-6); }
+    .voice-col { justify-items: start; }
+    .ask { text-align: left; }
+    .surfaces { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<!-- The cold start is injected by script, never authored here. An overlay
+     that blocks the page must not exist unless the code that dismisses it
+     is already running. -->
+
+<div class="page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">command surface</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html" aria-current="page">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="task-detail.html">Tasks</a>
+      <a href="plugins.html">Packs</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <a class="meta" href="index.html">What is weave?</a>
+      <span class="pill pill-ok"><span class="dot dot-live"></span> substrate live</span>
+      <span class="meta num" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main data-od-id="overview">
+
+    <!-- ─── the standing brief ─────────────────────────────────────── -->
+    <section class="brief" data-od-id="standing-brief">
+
+      <div data-od-id="brief-decision">
+        <p class="eyebrow" style="margin-bottom:var(--space-4)">Standing brief</p>
+        <h1 class="greeting" id="greeting">Good evening. One thing needs you.</h1>
+
+        <article class="decision" data-od-id="decision-card">
+          <header>
+            <span class="pill pill-warn"><span class="dot"></span> awaiting your grant</span>
+            <span class="meta mono">tsk-9f2b · remediate.acl</span>
+            <span class="spacer"></span>
+            <span class="meta held">peer-01 holding <span class="hot num" id="held">4m 12s</span></span>
+          </header>
+
+          <div class="body">
+            <p class="what">
+              Bind <span class="mono">EDGE_IN</span> inbound on <span class="mono">Gi0/0/2</span> —
+              two edge routers, one ACE each.
+            </p>
+
+            <div class="facts">
+              <div class="fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="warn-t" aria-hidden="true">
+                  <path d="M12 3l8 16H4z" /><path d="M12 10v4M12 16.5v.5" />
+                </svg>
+                <p><span class="mono warn-t">forward_ssh_provision</span> is irreversible and outward-facing, so the lease is parked until a human decides.</p>
+              </div>
+              <div class="fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="ok" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.5" /><path d="M8.6 12.2l2.3 2.3 4.4-4.6" />
+                </svg>
+                <p>What-if on changeset <span class="mono">cs-8841</span> predicts no new reachability loss. The payments path stays up.</p>
+              </div>
+              <div class="fact">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="dim" aria-hidden="true">
+                  <path d="M4 7h16M4 12h10M4 17h16" />
+                </svg>
+                <p>Spawned by <a class="hot mono" href="task-detail.html">tsk-9f18</a> — the CVE audit that found the broad ACE in the first place.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer>
+            <a class="btn btn-primary" href="console.html" id="review">Review the change</a>
+            <button class="btn btn-danger" id="deny">Deny and release the lease</button>
+            <span class="spacer"></span>
+            <span class="meta">the diff is on the console</span>
+          </footer>
+        </article>
+
+        <p class="allclear" data-od-id="all-clear">
+          Nothing else needs you. <span class="num">2</span> tasks in flight,
+          <span class="num">26</span> devices audited in the last hour,
+          <span class="num">0</span> starved.
+        </p>
+      </div>
+
+      <!-- voice: an input, sized like one -->
+      <div class="voice-col" data-od-id="voice">
+        <div class="orb-wrap">
+          <button class="orb orb-lg" id="orb" data-state="idle" aria-label="Push to talk">
+            <span class="ring" aria-hidden="true"></span>
+            <span class="ring r2" aria-hidden="true"></span>
+            <span class="ring r3" aria-hidden="true"></span>
+            <span class="core" aria-hidden="true"></span>
+          </button>
+          <div class="orb-caption" id="orb-caption">Hold Space · push to talk</div>
+        </div>
+        <div class="wave" id="wave" style="height:24px" aria-hidden="true"></div>
+        <p class="ask" id="ask">Ask about anything on the log — she answers on the console.</p>
+        <div class="suggest" style="justify-content:center" id="suggest">
+          <button data-q="What is holding at the effect gate?">what's holding?</button>
+          <button data-q="Give me the CVE posture across the edge tier.">cve posture</button>
+          <button data-q="Trace the path from the branch VPN concentrator to the payments VIP.">path trace</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── vitals strip ───────────────────────────────────────────── -->
+    <section class="strip" data-od-id="vitals-strip">
+      <div class="strip-inner">
+        <div class="svc">
+          <div class="top"><span class="n">substrate</span><span class="pill pill-ok">up</span></div>
+          <span class="d">41,213 events · compacted 2h ago</span>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="n">gateway :8787</span><span class="pill pill-ok">up</span></div>
+          <span class="d">POST /hook · the only write path</span>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="n">blackboard :8788</span><span class="pill pill-ok">up</span></div>
+          <span class="d">SSE · 3 subscribers · replay armed</span>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="n">pool</span><span class="pill pill-warn">1 degraded</span></div>
+          <span class="d">peer-04 on the local model tier</span>
+        </div>
+        <div class="svc">
+          <div class="top"><span class="big">14</span><span class="label">claims/min</span></div>
+          <span class="d">lease contention 0.3%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── surfaces ───────────────────────────────────────────────── -->
+    <section class="strip" style="padding-bottom:var(--section-y-tablet)" data-od-id="surfaces">
+      <div class="row-between wrap" style="margin-bottom:var(--space-5)">
+        <h2 style="font-size:var(--text-xl)">Three ways into the same event log.</h2>
+        <span class="meta">every surface reads the same SSE stream · the gateway is the only write path</span>
+      </div>
+
+      <div class="surfaces">
+        <a class="surface surface-primary" href="console.html" data-od-id="surface-console">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M4 6h16v12H4z" /><path d="M7.5 10.5l2.2 2.2-2.2 2.2M12.5 15h4" />
+          </svg>
+          <h3>Command console</h3>
+          <p>Where you actually work. Talk or type; tool calls, board panels, and the effect gate all resolve in one transcript against the live peer pool.</p>
+          <div class="go"><span class="btn btn-primary btn-sm">Open the console</span></div>
+        </a>
+        <a class="surface" href="network.html" data-od-id="surface-network">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <circle cx="12" cy="12" r="2.4" /><circle cx="4.5" cy="6" r="1.8" /><circle cx="19.5" cy="6" r="1.8" />
+            <circle cx="4.5" cy="18" r="1.8" /><circle cx="19.5" cy="18" r="1.8" />
+            <path d="M6 7l4.3 3.6M18 7l-4.3 3.6M6 17l4.3-3.6M18 17l-4.3-3.6" />
+          </svg>
+          <h3>Swarm</h3>
+          <p>Peers, claims and leases — core. The digital twin is a pack overlay.</p>
+          <div class="go"><span class="meta hot">swarm →</span></div>
+        </a>
+        <a class="surface" href="task-detail.html" data-od-id="surface-tasks">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5z" /><path d="M8.5 12l2 2 4-4" />
+          </svg>
+          <h3>Task record</h3>
+          <p>One task's whole lifecycle, with the events behind it.</p>
+          <div class="go"><span class="meta hot">tasks →</span></div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
+    <div class="container-wide row-between wrap" style="max-width:1440px">
+      <span class="meta">weave · cooperative-agent harness</span>
+      <span class="meta"><a href="index.html" class="hot">What is weave?</a> · <span class="mono">weave serve</span> + <span class="mono">weave pool --persona netops</span></span>
+    </div>
+  </footer>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  const H = window.WeaveHUD;
+  const { $ } = H;
+  H.clock($('#clock'));
+
+  /* ── cold start: once per session, skippable, never opaque ──────── */
+  const bootLines = [
+    'hex gate · <span class="ok">doctor green</span>',
+    'opening substrate · <span class="mono">~/.weave/weave.db</span>',
+    'replaying log from seq 41208 · <span class="ok">ok</span>',
+    'gateway :8787 <span class="ok">armed</span> · blackboard :8788 <span class="ok">streaming</span>',
+    'peers · <span class="ok">3 up</span> · <span class="warn-t">1 degraded</span>'
+  ];
+  let boot = null, bootDone = false;
+  function dismissBoot() {
+    if (bootDone) return;
+    bootDone = true;
+    if (!boot) return;
+    boot.classList.add('gone');
+    setTimeout(() => boot.remove(), 460);
+  }
+  if (!H.store.get('weave.booted')) {
+    H.store.set('weave.booted', '1');
+    boot = H.el('div', { class: 'boot', 'aria-hidden': 'true' });
+    boot.innerHTML =
+      '<div class="boot-inner">' +
+      '<div class="eyebrow" style="margin-bottom:var(--space-4)">weave · cold start</div>' +
+      '<div id="boot-log"></div>' +
+      '<p class="meta" style="margin-top:var(--space-4);opacity:.7">press any key to skip</p></div>';
+    document.body.appendChild(boot);
+    H.boot(bootLines, $('#boot-log'), () => setTimeout(dismissBoot, 420));
+    addEventListener('keydown', dismissBoot, { once: true });
+    boot.addEventListener('click', dismissBoot);
+    // failsafe: the scrim self-clears even if the sequence never finishes
+    setTimeout(dismissBoot, 4000);
+  }
+
+  /* ── greeting: report the exception, never a platitude ──────────── */
+  const PENDING = 1; // decisions parked at the effect gate
+  const hr = new Date().getHours();
+  const part = hr < 5 ? 'You are up late' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  $('#greeting').textContent = part + '. ' +
+    (PENDING === 0 ? 'Nothing needs you.' : PENDING === 1 ? 'One thing needs you.' : PENDING + ' things need you.');
+
+  /* ── the held lease keeps counting — the cost of not deciding ───── */
+  let held = 252;
+  setInterval(() => {
+    held += 1;
+    $('#held').textContent = Math.floor(held / 60) + 'm ' + H.pad(held % 60) + 's';
+  }, 1000);
+
+  /* ── ambient voice ──────────────────────────────────────────────── */
+  const wave = H.waveform($('#wave'), 30);
+  wave.idle();
+  const voice = new H.VoiceEngine({
+    onLevel: (l) => wave.set(l),
+    onInterim: (t) => { $('#ask').textContent = '“' + t + '”'; },
+    onFinal: (t) => jump(t),
+    onState: (s) => { if (s !== 'listening') wave.idle(); },
+    onNoMic: () => H.toast('no microphone — open the console to type')
+  });
+  H.bindOrb($('#orb'), voice, $('#orb-caption'));
+
+  const jump = (q) => { H.store.set('weave.pending', q); location.href = 'console.html'; };
+  $('#suggest').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) jump(b.dataset.q); });
+  $('#deny').addEventListener('click', () => jump('Deny the grant on tsk-9f2b and release the lease.'));
+})();
+</script>
+</body>
+</html>

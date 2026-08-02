@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Packs &amp; plugins · weave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  .detail { overflow-y: auto; min-height: 0; padding: var(--space-6) var(--space-8) var(--space-12); }
+  .detail-inner { max-width: 900px; display: flex; flex-direction: column; gap: var(--space-8); }
+
+  .banner {
+    display: grid; grid-template-columns: 18px 1fr; gap: var(--space-3);
+    padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
+    border: 1px solid color-mix(in oklab, var(--warn) 34%, var(--border));
+    background: color-mix(in oklab, var(--warn) 8%, transparent);
+  }
+  .banner svg { width: 18px; height: 18px; margin-top: 2px; color: var(--warn); }
+
+  .packcard { border: 1px solid var(--border); border-top: 2px dashed var(--muted); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+  .packcard > header { padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-soft); }
+  .packcard > .body { padding: var(--space-6); }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: var(--space-5); }
+  .kv .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .kv .v { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); margin-top: 5px; word-break: break-word; }
+
+  /* the verification ladder — verifyPackage() runs these in order */
+  .gate { display: grid; grid-template-columns: 22px 1fr auto; gap: var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--border-soft); align-items: start; }
+  .gate:last-child { border-bottom: 0; }
+  .gate .ord { font-family: var(--font-mono); font-size: 10px; color: var(--muted); padding-top: 3px; }
+  .gate .t { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); }
+  .gate .d { font-size: var(--text-sm); color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .gate .d code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-2); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11px; color: var(--fg-2);
+    border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    padding: 3px 8px; background: color-mix(in oklab, var(--surface) 70%, var(--bg));
+  }
+  .chip-persona { border-color: color-mix(in oklab, var(--claimed) 42%, transparent); color: var(--claimed); }
+
+  .plugin { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px var(--space-3); padding: 11px var(--space-4); align-items: center; }
+  .plugin + .plugin { border-top: 1px solid var(--border-soft); }
+  .plugin:hover { background: var(--fg-soft); }
+  .plugin .nm { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); }
+  .plugin .con { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.04em; margin-left: 8px; }
+  .plugin .ds { grid-column: 1 / -1; font-size: var(--text-xs); color: var(--muted); line-height: 1.45; }
+  .plugin[data-enabled="false"] .nm, .plugin[data-enabled="false"] .ds, .plugin[data-enabled="false"] .con { color: color-mix(in oklab, var(--muted) 55%, transparent); }
+  .tog {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    min-height: 26px; padding: 3px 10px; border-radius: var(--radius-pill);
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+  }
+  .tog[aria-pressed="true"] { color: var(--success); border-color: color-mix(in oklab, var(--success) 45%, transparent); }
+  .tog:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .tog:disabled { cursor: default; border-style: dashed; color: color-mix(in oklab, var(--muted) 60%, transparent); }
+
+  .steps { counter-reset: s; display: grid; gap: var(--space-4); }
+  .steps li { list-style: none; display: grid; grid-template-columns: 26px 1fr; gap: var(--space-3); align-items: start; }
+  .steps li::before {
+    counter-increment: s; content: counter(s, decimal-leading-zero);
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    width: 26px; height: 22px; display: grid; place-items: center;
+  }
+  .steps .cmd { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--accent); display: block; }
+  .steps .why { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+
+  @media (max-width: 920px) {
+    .detail { overflow: visible; padding: var(--space-5) var(--container-gutter-phone) var(--section-y-phone); }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="app page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">packs</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="task-detail.html">Tasks</a>
+      <a href="plugins.html" aria-current="page">Packs</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <span class="meta">1 pack · 12 in-tree</span>
+      <span class="meta num" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <div class="workspace" style="grid-template-columns: 1fr 340px;">
+
+    <section class="detail" data-od-id="packs">
+      <div class="detail-inner">
+
+        <header data-od-id="packs-header">
+          <p class="eyebrow" style="margin-bottom:var(--space-4)">Extension boundary</p>
+          <h1 style="font-size:var(--text-2xl)">Packs and plugins</h1>
+          <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+            Core ships a substrate. Everything domain-specific arrives as a package, verified as a whole
+            before any of it loads.
+          </p>
+        </header>
+
+        <!-- the honest status of this pack -->
+        <div class="banner" data-od-id="pack-status">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M12 3l8 16H4z" /><path d="M12 10v4M12 16.5v.5" />
+          </svg>
+          <div>
+            <p style="color:var(--fg);font-size:var(--text-sm)">Partially loaded — skills and personas resolve, executable code does not.</p>
+            <p class="meta" style="margin-top:5px;line-height:1.55">
+              The typed <span class="mono">forward_*</span> / <span class="mono">nqe_*</span> tools are still wired in-tree
+              pending the trust class for executable packages. This surface shows what is actually live, not what the
+              manifest declares.
+            </p>
+          </div>
+        </div>
+
+        <!-- the pack -->
+        <article class="packcard" data-od-id="pack-forward">
+          <header>
+            <div class="row-between wrap" style="gap:var(--space-3)">
+              <div class="row" style="gap:var(--space-3)">
+                <h2 style="font-size:var(--text-xl)">forward</h2>
+                <span class="pill">system-external</span>
+                <span class="pill">kind · skill</span>
+              </div>
+              <button class="tog" id="pack-tog" aria-pressed="true">enabled</button>
+            </div>
+            <p class="meta" style="margin-top:var(--space-3);line-height:1.55">
+              Forward Networks integration — the netops persona and all forward-* skills.
+              Vendored python; typed tools still in-tree pending the trust class.
+            </p>
+          </header>
+
+          <div class="body" style="display:grid;gap:var(--space-6)">
+            <div class="kv">
+              <div><div class="k">Package id</div><div class="v">dev.weave.forward</div></div>
+              <div><div class="k">Version</div><div class="v">0.1.0</div></div>
+              <div><div class="k">Identity</div><div class="v">gaberger/weave-plugins</div></div>
+              <div><div class="k">Resolved from</div><div class="v">../weave-plugins</div></div>
+              <div><div class="k">Search path</div><div class="v">WEAVE_PLUGINS_PATH</div></div>
+              <div><div class="k">Guard contract</div><div class="v">GUARD.md</div></div>
+            </div>
+
+            <hr class="rule" />
+
+            <div>
+              <p class="label" style="margin-bottom:var(--space-3)">Declared capabilities</p>
+              <div class="kv">
+                <div><div class="k">Tools</div><div class="v">forward_* · nqe_* · report_*</div></div>
+                <div><div class="k">Network</div><div class="v warn-t">* (unrestricted)</div></div>
+                <div><div class="k">Secrets</div><div class="v">none declared</div></div>
+                <div><div class="k">Max effect</div><div class="v warn-t">irreversible</div></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- verification ladder -->
+        <section data-od-id="verification">
+          <div class="row-between wrap" style="margin-bottom:var(--space-4)">
+            <h2 style="font-size:var(--text-xl)">Verification</h2>
+            <span class="meta">order matters — nothing executes before the version check</span>
+          </div>
+          <div class="card" style="padding:var(--space-2) var(--space-6)">
+
+            <div class="gate">
+              <span class="ord">01</span>
+              <div>
+                <span class="t">integrity block</span>
+                <p class="d">Manifest declares <code>keyId</code> and a <code>files</code> map, or the package is refused with
+                  <code>no integrity block — run: weave plugin manifest &lt;dir&gt;</code>.</p>
+              </div>
+              <span class="pill pill-ok">present</span>
+            </div>
+
+            <div class="gate">
+              <span class="ord">02</span>
+              <div>
+                <span class="t">weaveVersion range</span>
+                <p class="d">Checked <em>before</em> anything runs — a package built against a newer core may assume seams
+                  this one lacks. This pack declares no range, so the gate is skipped.</p>
+              </div>
+              <span class="pill pill-warn">not declared</span>
+            </div>
+
+            <div class="gate">
+              <span class="ord">03</span>
+              <div>
+                <span class="t">byte coverage</span>
+                <p class="d"><span class="num">171</span> files hashed with sha256 across the whole package.
+                  Skills get no data exemption — they are what the interpreter runs.</p>
+              </div>
+              <span class="pill pill-ok">171 files</span>
+            </div>
+
+            <div class="gate">
+              <span class="ord">04</span>
+              <div>
+                <span class="t">operator pin</span>
+                <p class="d">The trust store binds this identity to a digest. Pin or release with
+                  <code>weave plugin trust &lt;dir&gt;</code> / <code>untrust</code>.</p>
+              </div>
+              <span class="pill pill-ok">pinned</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- what it contributes -->
+        <section data-od-id="contributes">
+          <div class="row-between wrap" style="margin-bottom:var(--space-4)">
+            <h2 style="font-size:var(--text-xl)">What it contributes</h2>
+            <span class="meta"><span class="num">25</span> skills · <span class="num">7</span> personas</span>
+          </div>
+
+          <p class="label" style="margin-bottom:var(--space-3)">Personas</p>
+          <div class="chips" style="margin-bottom:var(--space-6)">
+            <span class="chip chip-persona">netops</span><span class="chip chip-persona">coordinator</span>
+            <span class="chip chip-persona">orchestrator</span><span class="chip chip-persona">planner</span>
+            <span class="chip chip-persona">planning-oracle</span><span class="chip chip-persona">browser-verify</span>
+            <span class="chip chip-persona">network-ssh-provision</span>
+          </div>
+
+          <p class="label" style="margin-bottom:var(--space-3)">Forward skills</p>
+          <div class="chips">
+            <span class="chip">api-docs</span><span class="chip">bgp-prefix</span><span class="chip">changeset</span>
+            <span class="chip">compliance-check</span><span class="chip">device-config</span><span class="chip">device-intel</span>
+            <span class="chip">device-tag</span><span class="chip">discovery</span><span class="chip">intent-check</span>
+            <span class="chip">inventory</span><span class="chip">nqe-query</span><span class="chip">path-analysis</span>
+            <span class="chip">playbook</span><span class="chip">predict</span><span class="chip">security-posture</span>
+            <span class="chip">snapshot-collection</span><span class="chip">ui</span><span class="chip">vulnerability</span>
+          </div>
+        </section>
+
+        <!-- in-tree registry -->
+        <section data-od-id="in-tree">
+          <div class="row-between wrap" style="margin-bottom:var(--space-4)">
+            <h2 style="font-size:var(--text-xl)">In-tree plugins</h2>
+            <span class="meta" id="tree-count">12 registered</span>
+          </div>
+          <p class="meta" style="margin-bottom:var(--space-4);line-height:1.55;max-width:70ch">
+            Trusted by construction — they arrived with weave itself, so whoever could modify them could modify weave.
+            That is a real trust statement, not a loophole.
+          </p>
+          <div class="card" style="padding:0;overflow:hidden" id="plugins"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- right rail: lifecycle -->
+    <aside class="rail rail-right" data-od-id="rail-lifecycle">
+      <section class="panel" style="flex:none">
+        <div class="panel-head"><span class="title">Install a pack</span></div>
+        <div class="panel-body">
+          <ol class="steps" style="padding:0;margin:0">
+            <li><div>
+              <span class="cmd">weave plugin add &lt;path&gt;</span>
+              <p class="why">Copies a folder containing plugin.json into ~/.weave/plugins. Needs a restart to load.</p>
+            </div></li>
+            <li><div>
+              <span class="cmd">weave plugin manifest &lt;dir&gt;</span>
+              <p class="why">Generates the integrity block. Without it nothing can produce a package the loader accepts.</p>
+            </div></li>
+            <li><div>
+              <span class="cmd">weave plugin trust &lt;dir&gt;</span>
+              <p class="why">Pins the digest against the identity in the operator's trust store.</p>
+            </div></li>
+            <li><div>
+              <span class="cmd">weave plugin list</span>
+              <p class="why">Confirms it registered and shows what it contributes.</p>
+            </div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:none">
+        <div class="panel-head"><span class="title">Other verbs</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-3)">
+          <div><span class="mono hot" style="font-size:var(--text-xs)">weave plugin remove &lt;name&gt;</span></div>
+          <div>
+            <span class="mono hot" style="font-size:var(--text-xs)">weave plugin export &lt;name&gt; [dir]</span>
+            <p class="meta" style="margin-top:3px">Surface plugins only — anything without routes() is refused as unportable.</p>
+          </div>
+          <div><span class="mono hot" style="font-size:var(--text-xs)">weave gen-plugin &lt;openapi&gt;</span></div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head"><span class="title">Write path</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-3)">
+          <p class="meta" style="line-height:1.55">
+            Toggling here POSTs <span class="mono hot">{plugin:{name,enabled}}</span> to the gateway — the only write path.
+            It mutates the live set and persists to <span class="mono">plugins.json</span>.
+          </p>
+          <div class="row-between"><span class="label">Applies</span><span class="pill pill-ok">live · no restart</span></div>
+          <div class="row-between"><span class="label">Tool changes</span><span class="pill">next skill assembly</span></div>
+          <hr class="rule" />
+          <p class="meta" style="line-height:1.55">
+            <span class="mono">/admin</span> is the same control surface, served beside the blackboard.
+          </p>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  const H = window.WeaveHUD;
+  const { $, el } = H;
+  H.clock($('#clock'));
+
+  /* The twelve in-tree plugins that declare a plugin.json under
+     src/composition/plugins/. `manage` is required: true — disabling it
+     would remove the ability to re-enable anything. */
+  const PLUGINS = [
+    { n: 'tasks',     c: 'commands', ds: 'Declare and settle. Owns the claim–lease write path.' },
+    { n: 'manage',    c: 'commands', req: true, ds: 'The plugin manager itself. Required — its toggle is dead by design.' },
+    { n: 'canvas',    c: 'tools',    ds: 'Named canvases and board panels.' },
+    { n: 'console',   c: 'surface',  ds: 'Voice display tools — show_answer, show_table, show_metrics, show_path.' },
+    { n: 'developer', c: 'tools',    ds: 'Master coordinator. Isolate → verify → propose.' },
+    { n: 'overlays',  c: 'tools',    ds: 'Skill-resolution stack. Layers persona packs over the base skill set.' },
+    { n: 'training',  c: 'tools',    ds: 'Capture mode. Turns corrections into durable findings.' },
+    { n: 'forward',   c: 'skill',    ext: true, ds: 'Registration shim for the out-of-tree pack above.' },
+    { n: 'claude',    c: 'tools',    ds: 'Model provider for persona routing.' },
+    { n: 'codex',     c: 'tools',    ds: 'Model provider for persona routing.' },
+    { n: 'ollama',    c: 'tools',    ds: 'Local model tier.' },
+    { n: 'websearch', c: 'tools',    ds: 'Web retrieval tool.' }
+  ];
+
+  const host = $('#plugins');
+  function render() {
+    host.replaceChildren();
+    PLUGINS.forEach((p) => {
+      if (p.on === undefined) p.on = true;
+      const row = el('div', { class: 'plugin', 'data-enabled': String(p.on), 'data-od-id': 'plugin-' + p.n });
+      const left = el('div');
+      left.appendChild(el('span', { class: 'nm', text: p.n }));
+      left.appendChild(el('span', { class: 'con', text: p.c + (p.ext ? ' · shim' : '') }));
+      row.appendChild(left);
+      const tog = el('button', {
+        class: 'tog', 'data-name': p.n, 'aria-pressed': String(p.on),
+        text: p.req ? 'core' : (p.on ? 'enabled' : 'disabled')
+      });
+      if (p.req) tog.disabled = true;
+      row.appendChild(tog);
+      row.appendChild(el('span', { class: 'ds', text: p.ds }));
+      host.appendChild(row);
+    });
+    const off = PLUGINS.filter((x) => !x.on).length;
+    $('#tree-count').textContent = off ? '12 registered · ' + off + ' disabled' : '12 registered';
+  }
+  render();
+
+  host.addEventListener('click', (e) => {
+    const b = e.target.closest('.tog');
+    if (!b || b.disabled) return;
+    const p = PLUGINS.find((x) => x.n === b.dataset.name);
+    p.on = !p.on;
+    render();
+    H.toast('POST {plugin:{name:"' + p.n + '",enabled:' + p.on + '}} → gateway');
+    if (p.n === 'forward') syncPack(p.on);
+  });
+
+  /* the pack toggle and its in-tree shim are the same switch */
+  const packTog = $('#pack-tog');
+  function syncPack(on) {
+    packTog.setAttribute('aria-pressed', String(on));
+    packTog.textContent = on ? 'enabled' : 'disabled';
+    const shim = PLUGINS.find((x) => x.n === 'forward');
+    if (shim.on !== on) { shim.on = on; render(); }
+  }
+  packTog.addEventListener('click', () => {
+    const on = packTog.getAttribute('aria-pressed') !== 'true';
+    syncPack(on);
+    H.toast(on
+      ? 'forward enabled — 25 skills and 7 personas resolve'
+      : 'forward disabled — its skills, personas and twin views leave the interface');
+  });
+})();
+</script>
+</body>
+</html>

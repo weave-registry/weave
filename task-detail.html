@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>tsk-9f18 · CVE audit · weave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  .detail { overflow-y: auto; min-height: 0; padding: var(--space-6) var(--space-8) var(--space-12); }
+  .detail-inner { max-width: 860px; }
+  .timeline { position: relative; padding-left: var(--space-6); }
+  .timeline::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+  .tl-row { position: relative; padding: 0 0 var(--space-5); }
+  .tl-row::before {
+    content: ''; position: absolute; left: -22px; top: 5px; width: 11px; height: 11px;
+    border-radius: 50%; background: var(--bg); border: 2px solid var(--border);
+  }
+  .tl-row[data-tone="ok"]::before { border-color: var(--success); }
+  .tl-row[data-tone="live"]::before { border-color: var(--accent); box-shadow: var(--glow); }
+  .tl-row[data-tone="claim"]::before { border-color: var(--claimed); }
+  .tl-row[data-tone="warn"]::before { border-color: var(--warn); }
+  .tl-row .hdr { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+  .tl-row .k { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); }
+  .tl-row .d { font-size: var(--text-sm); color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); }
+  .kv > div .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .kv > div .v { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); margin-top: 4px; }
+  .codeblock {
+    font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.65;
+    background: color-mix(in oklab, var(--bg) 55%, var(--surface));
+    border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    padding: var(--space-4); overflow-x: auto; color: var(--fg-2); margin: 0;
+  }
+  .codeblock .key { color: var(--accent); }
+  .codeblock .str { color: var(--success); }
+  @media (max-width: 920px) {
+    .detail { overflow: visible; padding: var(--space-5) var(--container-gutter-phone) var(--section-y-phone); }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="app page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">task</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="task-detail.html" aria-current="page">Tasks</a>
+      <a href="plugins.html">Packs</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <span class="meta num" id="clock">--:--:--</span>
+      <div class="orb-wrap">
+        <button class="orb orb-sm" id="orb" data-state="idle" aria-label="Push to talk">
+          <span class="ring" aria-hidden="true"></span><span class="core" aria-hidden="true"></span>
+        </button>
+      </div>
+      <span class="meta" id="orb-caption" style="min-width:150px">Hold Space · push to talk</span>
+    </div>
+  </header>
+
+  <div class="workspace" style="grid-template-columns: 236px 1fr 340px;">
+
+    <!-- left rail: sibling tasks -->
+    <aside class="rail" data-od-id="rail-tasklist">
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head"><span class="title">Task log</span><span class="spacer"></span><span class="count">4</span></div>
+        <div class="panel-body tight scroll-y">
+          <a class="task" data-state="running" href="task-detail.html">
+            <span class="t">Refresh snapshot · network 212984</span>
+            <div class="r"><span class="meta mono">tsk-9f21</span><span class="pill pill-accent">running</span></div>
+            <div class="lease"><i style="width:58%"></i></div>
+          </a>
+          <a class="task" data-state="completed" href="task-detail.html" aria-current="page" style="border-color:var(--accent-line)">
+            <span class="t">CVE audit · edge + core routers</span>
+            <div class="r"><span class="meta mono">tsk-9f18</span><span class="pill pill-ok">completed</span></div>
+          </a>
+          <a class="task" data-state="gated" href="task-detail.html">
+            <span class="t">Remediate ACL binding · 2 routers</span>
+            <div class="r"><span class="meta mono">tsk-9f2b</span><span class="pill pill-warn">grant held</span></div>
+          </a>
+          <a class="task" data-state="failed" href="task-detail.html">
+            <span class="t">STIG sweep · datacenter switches</span>
+            <div class="r"><span class="meta mono">tsk-9efa</span><span class="pill pill-bad">failed</span></div>
+          </a>
+        </div>
+      </section>
+    </aside>
+
+    <!-- centre: the record -->
+    <section class="detail" data-od-id="task-record">
+      <div class="detail-inner stack" style="gap:var(--space-8)">
+
+        <header data-od-id="task-header">
+          <div class="row wrap" style="gap:var(--space-3);margin-bottom:var(--space-4)">
+            <span class="pill pill-ok"><span class="dot"></span> completed</span>
+            <span class="pill">persona · netops</span>
+            <span class="pill">effect ceiling · reversible</span>
+            <span class="meta mono">tsk-9f18</span>
+          </div>
+          <h1 style="font-size:var(--text-2xl)">CVE audit across the edge and core routers</h1>
+          <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+            Declared from the console at 09:14Z, claimed by <span class="mono">peer-02</span> in 340&nbsp;ms, settled in 1&nbsp;m&nbsp;52&nbsp;s
+            across 26 devices. Produced one board panel and spawned one gated remediation.
+          </p>
+          <div class="row wrap" style="gap:var(--space-3);margin-top:var(--space-5)">
+            <button class="btn btn-primary btn-sm" id="ask">Ask weave about this result</button>
+            <button class="btn btn-sm" id="respawn">Re-declare with fresh snapshot</button>
+            <a class="btn btn-sm" href="network.html">Show on the twin</a>
+          </div>
+        </header>
+
+        <section class="card brackets" data-od-id="task-vitals">
+          <div class="kv">
+            <div><div class="k">Claimed by</div><div class="v">peer-02</div></div>
+            <div><div class="k">Model</div><div class="v">claude-sonnet-5</div></div>
+            <div><div class="k">Lease renewals</div><div class="v num">4</div></div>
+            <div><div class="k">Wall time</div><div class="v num">1m 52s</div></div>
+            <div><div class="k">Tokens</div><div class="v num">61.2k</div></div>
+            <div><div class="k">Cost</div><div class="v num">$0.38</div></div>
+          </div>
+        </section>
+
+        <section data-od-id="task-timeline">
+          <div class="row-between" style="margin-bottom:var(--space-5)">
+            <h2 style="font-size:var(--text-xl)">Lifecycle</h2>
+            <span class="meta">subject <span class="mono hot">tsk-9f18</span> · 11 events</span>
+          </div>
+          <div class="timeline">
+            <div class="tl-row" data-tone="">
+              <div class="hdr"><span class="k">task.declared</span><span class="meta num">09:14:02Z</span></div>
+              <p class="d">Declared from the console with <span class="mono">persona: netops</span> pinned, so only a netops worker could claim it.</p>
+            </div>
+            <div class="tl-row" data-tone="claim">
+              <div class="hdr"><span class="k">task.claimed</span><span class="meta num">09:14:02Z</span><span class="pill pill-claimed">peer-02</span></div>
+              <p class="d">Claimed 340&nbsp;ms after declaration. peer-01 lost the race and backed off.</p>
+            </div>
+            <div class="tl-row" data-tone="">
+              <div class="hdr"><span class="k">tool.called</span><span class="meta num">09:14:06Z</span></div>
+              <p class="d">
+                <span class="toolcall"><span class="fn">forward_snapshots</span><span class="eff">· read</span></span>
+                <span class="toolcall" style="margin-left:6px"><span class="fn">forward_cve_audit</span><span class="eff">· read · 26 devices</span></span>
+              </p>
+            </div>
+            <div class="tl-row" data-tone="">
+              <div class="hdr"><span class="k">lease.renewed</span><span class="meta num">09:14:32Z</span><span class="meta">×4 · ttl 60s</span></div>
+              <p class="d">Renewed every 30&nbsp;s while the audit ran. A missed renewal would have returned the task to the pool, not lost it.</p>
+            </div>
+            <div class="tl-row" data-tone="live">
+              <div class="hdr"><span class="k">board.panel</span><span class="meta num">09:15:41Z</span><span class="pill pill-accent">canvas · default</span></div>
+              <p class="d">Pushed a metrics panel to the blackboard. Recallable after compaction via <span class="mono">recall_task</span>.</p>
+            </div>
+            <div class="tl-row" data-tone="ok">
+              <div class="hdr"><span class="k">task.completed</span><span class="meta num">09:15:54Z</span></div>
+              <p class="d">Settled with 11 critical and 34 high findings. Result written to the log, then folded into the snapshot by <span class="mono">weave compact</span>.</p>
+            </div>
+            <div class="tl-row" data-tone="warn">
+              <div class="hdr"><span class="k">spawn_task</span><span class="meta num">09:15:55Z</span><span class="pill pill-warn">grant held</span></div>
+              <p class="d">
+                Spawned <a class="mono hot" href="task-detail.html">tsk-9f2b</a> to bind the missing ACL on two routers. That task needs
+                <span class="mono">forward_ssh_provision</span> — irreversible — so it is parked at the effect gate waiting on a human.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section data-od-id="task-result">
+          <h2 style="font-size:var(--text-xl);margin-bottom:var(--space-5)">Result</h2>
+          <div class="board-panel" data-kind="warn" style="margin-top:0">
+            <header><span class="t">CVE posture · 26 devices</span><span class="label">board.panel · seq 41174</span></header>
+            <div class="content">
+              <div class="metrics">
+                <div class="metric"><div class="v num">11</div><div class="k">critical</div></div>
+                <div class="metric"><div class="v num">34</div><div class="k">high</div></div>
+                <div class="metric"><div class="v num">9</div><div class="k">one upgrade fixes</div></div>
+                <div class="metric"><div class="v num">2</div><div class="k">config-only</div></div>
+              </div>
+              <table class="ds-table" style="margin-top:var(--space-5)">
+                <thead><tr><th>Device</th><th>Train</th><th>Finding</th><th class="num-col">Critical</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">edge-rtr-01</td><td class="mono">IOS-XE 17.3</td><td>broad ACE on Gi0/0/2</td><td class="num-col">6</td></tr>
+                  <tr><td class="mono">edge-rtr-04</td><td class="mono">IOS-XE 17.3</td><td>broad ACE on Gi0/0/2</td><td class="num-col">5</td></tr>
+                  <tr><td class="mono">core-sw-01</td><td class="mono">NX-OS 10.2</td><td class="ok">clean</td><td class="num-col">0</td></tr>
+                  <tr><td class="mono">core-sw-02</td><td class="mono">NX-OS 10.2</td><td class="ok">clean</td><td class="num-col">0</td></tr>
+                  <tr><td class="dim">— 22 more devices</td><td class="dim mono">mixed</td><td class="dim">no critical findings</td><td class="num-col">0</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section data-od-id="task-spec">
+          <h2 style="font-size:var(--text-xl);margin-bottom:var(--space-5)">Declared spec</h2>
+          <pre class="codeblock"><span class="key">{</span>
+  <span class="key">"kind"</span>: <span class="str">"task.declared"</span>,
+  <span class="key">"id"</span>: <span class="str">"tsk-9f18"</span>,
+  <span class="key">"persona"</span>: <span class="str">"netops"</span>,
+  <span class="key">"goal"</span>: <span class="str">"Audit CVE exposure across edge and core routers on network 212984"</span>,
+  <span class="key">"maxEffect"</span>: <span class="str">"reversible"</span>,
+  <span class="key">"allowedTools"</span>: [<span class="str">"forward_snapshots"</span>, <span class="str">"forward_cve_audit"</span>, <span class="str">"security_matrix"</span>, <span class="str">"board_panel"</span>, <span class="str">"spawn_task"</span>],
+  <span class="key">"lease"</span>: <span class="key">{</span> <span class="key">"ttlMs"</span>: 60000, <span class="key">"renewEveryMs"</span>: 30000 <span class="key">}</span>
+<span class="key">}</span></pre>
+        </section>
+      </div>
+    </section>
+
+    <!-- right rail: raw events + recall -->
+    <aside class="rail rail-right" data-od-id="rail-events">
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head"><span class="title">Raw events</span><span class="spacer"></span><span class="count">subject filter</span></div>
+        <div class="panel-body flush scroll-y">
+          <div class="feed">
+            <div class="evt" data-kind="tool"><span class="seq">41176</span><div><span class="kind">grant.requested</span><span class="subj">tsk-9f2b · forward_ssh_provision</span></div></div>
+            <div class="evt" data-kind="declared"><span class="seq">41175</span><div><span class="kind">task.declared</span><span class="subj">tsk-9f2b · remediate.acl</span></div></div>
+            <div class="evt" data-kind="completed"><span class="seq">41174</span><div><span class="kind">task.completed</span><span class="subj">tsk-9f18 · 11 critical / 34 high</span></div></div>
+            <div class="evt"><span class="seq">41173</span><div><span class="kind">board.panel</span><span class="subj">canvas:default · metrics</span></div></div>
+            <div class="evt"><span class="seq">41172</span><div><span class="kind">lease.renewed</span><span class="subj">peer-02 · ttl 60s</span></div></div>
+            <div class="evt"><span class="seq">41171</span><div><span class="kind">task.progress</span><span class="subj">audited 26/26 devices</span></div></div>
+            <div class="evt" data-kind="tool"><span class="seq">41170</span><div><span class="kind">tool.called</span><span class="subj">forward_cve_audit · read</span></div></div>
+            <div class="evt"><span class="seq">41169</span><div><span class="kind">lease.renewed</span><span class="subj">peer-02 · ttl 60s</span></div></div>
+            <div class="evt" data-kind="tool"><span class="seq">41168</span><div><span class="kind">tool.called</span><span class="subj">forward_snapshots · read</span></div></div>
+            <div class="evt" data-kind="claimed"><span class="seq">41167</span><div><span class="kind">task.claimed</span><span class="subj">peer-02 · lease 60s</span></div></div>
+            <div class="evt" data-kind="declared"><span class="seq">41166</span><div><span class="kind">task.declared</span><span class="subj">cve.audit · network 212984</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:none">
+        <div class="panel-head"><span class="title">Recall</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-3)">
+          <p class="meta" style="line-height:1.5">This result survives log compaction. Any peer can pull it back with <span class="mono hot">recall_task("tsk-9f18")</span> instead of re-running the audit.</p>
+          <div class="row-between"><span class="label">Indexed</span><span class="pill pill-ok">bm25 + embedding</span></div>
+          <div class="row-between"><span class="label">Graph node</span><span class="meta mono">report:cve-9f18</span></div>
+          <div class="row-between"><span class="label">Compacted</span><span class="pill">pending next fold</span></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  const H = window.WeaveHUD;
+  H.clock(H.$('#clock'));
+  const voice = new H.VoiceEngine({
+    onFinal: (t) => { H.store.set('weave.pending', t); location.href = 'console.html'; },
+    onNoMic: () => H.toast('no microphone — open the console to type')
+  });
+  H.bindOrb(H.$('#orb'), voice, H.$('#orb-caption'));
+
+  const jump = (q) => { H.store.set('weave.pending', q); location.href = 'console.html'; };
+  H.$('#ask').addEventListener('click', () => jump('Explain the CVE audit result from tsk-9f18 — what should I fix first?'));
+  H.$('#respawn').addEventListener('click', () => jump('Re-declare the CVE audit against a fresh snapshot of network 212984.'));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>weave — a cooperative-agent harness you can talk to</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  .shot {
+    position: relative; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; background: var(--surface); box-shadow: var(--elev-raised);
+    aspect-ratio: 16 / 10;
+  }
+  .shot .chrome {
+    display: flex; align-items: center; gap: 6px; padding: 9px var(--space-4);
+    border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--surface-warm) 60%, var(--surface));
+  }
+  .shot .chrome i { width: 9px; height: 9px; border-radius: 50%; background: var(--border); display: block; }
+  .shot .chrome .url { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-left: var(--space-3); }
+  .shot .viewport { position: absolute; inset: 34px 0 0; overflow: hidden; }
+  /* 1180px viewport puts the console on its 2-column breakpoint, so the
+     transcript is legible at hero scale instead of being a grey smudge */
+  .shot iframe { width: 1180px; height: 690px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .shot .glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 46%); }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); align-items: center; }
+  .steps { counter-reset: s; display: grid; gap: var(--space-5); }
+  .steps li { list-style: none; display: grid; grid-template-columns: 30px 1fr; gap: var(--space-4); align-items: start; }
+  .steps li::before {
+    counter-increment: s; content: counter(s, decimal-leading-zero);
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    width: 30px; height: 26px; display: grid; place-items: center;
+  }
+  .steps h3 { font-size: var(--text-base); margin-bottom: 3px; }
+  .steps p { font-size: var(--text-sm); color: var(--muted); }
+
+  /* each feature leads with a real product fragment, not a decorative icon */
+  .feature .frag {
+    min-height: 92px; display: flex; flex-direction: column; justify-content: center;
+    gap: var(--space-2); padding: var(--space-4); margin-bottom: var(--space-5);
+    border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface) 66%, var(--bg));
+  }
+  .feature h3 { margin-bottom: 6px; }
+  .feature p { color: var(--muted); font-size: var(--text-sm); }
+  .packtag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+    color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius-pill);
+    padding: 1px 7px; white-space: nowrap;
+  }
+  /* surface cards are links — they need to read as interactive at rest */
+  .surface {
+    display: flex; flex-direction: column; padding: var(--space-6);
+    border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface);
+    transition: border-color var(--motion-base) var(--ease-standard),
+                transform var(--motion-base) var(--ease-standard),
+                box-shadow var(--motion-base) var(--ease-standard);
+  }
+  .surface:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--elev-raised); }
+  .surface:hover .go { color: var(--accent); }
+  .surface .peek {
+    min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 5px;
+    padding: var(--space-3); margin-bottom: var(--space-5);
+    border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--bg) 55%, var(--surface)); overflow: hidden;
+  }
+  .surface .go { margin-top: auto; padding-top: var(--space-5); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); transition: color var(--motion-base) var(--ease-standard); }
+  .boundary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
+  .boundary > div { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+  .boundary .core { border-top: 2px solid var(--accent); }
+  .boundary .pack { border-top: 2px dashed var(--muted); }
+  .boundary ul { margin: var(--space-4) 0 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+  .boundary li { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-2); }
+  @media (max-width: 920px) { .boundary { grid-template-columns: 1fr; } }
+
+  .log-row { display: grid; grid-template-columns: 132px 1fr 130px; gap: var(--space-6); padding: var(--space-5) 0; border-top: 1px solid var(--border-soft); align-items: baseline; }
+  .log-row h3 { font-size: var(--text-lg); }
+  .log-row p { font-size: var(--text-sm); color: var(--muted); margin-top: 4px; }
+  .log-row .pull { text-align: right; }
+  .scorecard {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-12); margin-bottom: var(--space-8);
+    padding-bottom: var(--space-8); border-bottom: 1px solid var(--border-soft);
+  }
+  .dim-row { display: grid; grid-template-columns: 1fr auto; gap: 8px var(--space-4); align-items: baseline; }
+  .dim-row .n { font-size: var(--text-base); color: var(--fg-2); }
+  .dim-row .p { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg); font-variant-numeric: tabular-nums; }
+  .dim-row .bar { grid-column: 1 / -1; height: 5px; border-radius: var(--radius-pill); background: var(--border-soft); overflow: hidden; }
+  .dim-row .bar > i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+  .dim-row.mid .bar > i { background: var(--warn); }
+  .dim-row.low .bar > i { background: var(--danger); }
+  @media (max-width: 920px) { .scorecard { grid-template-columns: 1fr; gap: var(--space-4); } }
+  @media (max-width: 920px) {
+    .split { grid-template-columns: 1fr; gap: var(--space-8); }
+    .log-row { grid-template-columns: 1fr; gap: var(--space-2); }
+    .log-row .pull { text-align: left; }
+    .shot iframe { width: 1400px; height: 900px; }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="page">
+  <header class="topbar" data-od-id="topbar" style="position:sticky;top:0">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave</span>
+    </a>
+    <div class="spacer"></div>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#surfaces">Surfaces</a>
+      <a href="#roadmap">Roadmap</a>
+    </nav>
+    <a class="meta" href="https://github.com/weave-registry/weave"
+       style="display:inline-flex;align-items:center;min-height:26px;padding:0 10px;margin-right:var(--space-2);border-radius:var(--radius-sm)">GitHub</a>
+    <a class="btn btn-primary btn-sm" href="console.html">Open the console</a>
+  </header>
+
+  <main>
+    <!-- hero -->
+    <section class="section" style="padding-block:var(--section-y-tablet) var(--section-y-desktop)" data-od-id="hero">
+      <div class="container-wide" style="max-width:1440px">
+        <div class="split">
+          <div>
+            <p class="eyebrow" style="margin-bottom:var(--space-5)">Cooperative-agent harness</p>
+            <h1>Talk to your swarm. Watch it claim the work.</h1>
+            <p class="lead" style="margin-top:var(--space-5)">
+              weave is a shared event log that autonomous agents claim work from, run, and publish results back to —
+              with a live blackboard and a voice channel over the top.
+            </p>
+            <div class="row wrap" style="gap:var(--space-3);margin-top:var(--space-6)">
+              <a class="btn btn-primary" href="console.html">Open the console</a>
+              <a class="btn" href="surfaces.html">See what needs you</a>
+            </div>
+            <p class="meta" style="margin-top:var(--space-5)">
+              <span class="mono">weave serve</span> · <span class="mono">weave pool --workers 4</span> ·
+              <span class="mono">weave doctor</span>
+            </p>
+          </div>
+
+          <!-- product shot: the real console, running -->
+          <div class="shot brackets" data-od-id="hero-shot">
+            <div class="chrome"><i></i><i></i><i></i><span class="url">127.0.0.1:8788 — blackboard</span></div>
+            <div class="viewport">
+              <!-- fallback sits behind the iframe; visible only if the console fails to load -->
+              <div style="position:absolute;inset:0;display:grid;place-items:center;padding:var(--space-6);text-align:center">
+                <p class="meta" style="max-width:32ch;line-height:1.6">
+                  The console preview needs <span class="mono">console.html</span> alongside this page.
+                  <br /><a class="hot" href="console.html">Open it directly →</a>
+                </p>
+              </div>
+              <iframe src="console.html" title="weave command console" loading="lazy" tabindex="-1" aria-hidden="true" id="shot-frame"></iframe>
+            </div>
+            <div class="glare" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- what makes it different -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" data-od-id="features">
+      <div class="container-wide" style="max-width:1440px">
+        <div style="max-width:38ch;margin-bottom:var(--space-12)">
+          <h2 style="font-size:var(--text-2xl)">Three things you notice in the first ten minutes.</h2>
+        </div>
+        <div class="grid-3">
+          <div class="feature" data-od-id="feature-voice">
+            <div class="frag">
+              <span class="meta">you · voice</span>
+              <span style="color:var(--fg);font-size:var(--text-sm)">“What's holding at the effect gate?”</span>
+              <span class="meta"><span class="hot">weave</span> · displays, doesn't read aloud</span>
+            </div>
+            <h3>The voice channel is a real channel</h3>
+            <p>Browser-native speech in, streaming replies out, with a cross-tab lock so only one surface ever speaks. She is terse on purpose — she displays data rather than reading it to you.</p>
+          </div>
+          <div class="feature" data-od-id="feature-substrate">
+            <div class="frag">
+              <span class="task" data-state="running" style="display:block;width:100%">
+                <span class="t">Refresh snapshot · 212 devices</span>
+                <span class="r"><span class="meta mono">tsk-9f21</span><span class="pill pill-accent">running</span><span class="meta mono">peer-01</span></span>
+                <span class="lease" style="display:block"><i style="width:58%;display:block"></i></span>
+              </span>
+            </div>
+            <h3>Work is claimed, not assigned</h3>
+            <p>You declare a goal; peers race to claim it and hold a renewable lease while they run. A crashed worker returns its task to the pool instead of losing it.</p>
+          </div>
+          <div class="feature" data-od-id="feature-gate">
+            <div class="frag">
+              <span class="pill pill-warn" style="align-self:flex-start"><span class="dot"></span> awaiting your grant</span>
+              <span class="toolcall" data-effect="irreversible" style="align-self:flex-start">
+                <span class="fn">ssh_provision</span><span class="eff">· irreversible · blocked</span>
+              </span>
+            </div>
+            <h3>Irreversible means it asks</h3>
+            <p>Every tool carries an effect — read, reversible, irreversible. Anything outward-facing stops at a grant gate with the predicted changeset in front of you, scoped to one task only.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- how it works -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="how" data-od-id="how-it-works">
+      <div class="container-wide" style="max-width:1440px">
+        <div class="split">
+          <div>
+            <p class="eyebrow" style="margin-bottom:var(--space-5)">The substrate</p>
+            <h2 style="font-size:var(--text-2xl)">One append-only log. Everything else reads from it.</h2>
+            <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+              There is no scheduler handing out jobs. There is a log, and there are peers watching it.
+            </p>
+            <ol class="steps" style="margin-top:var(--space-8);padding:0">
+              <li><div><h3>Declare</h3><p>A goal enters through the gateway — the single write path — optionally pinned to a persona so only that specialist can take it.</p></div></li>
+              <li><div><h3>Claim &amp; lease</h3><p>Peers poll, race, and one wins. The winner renews a 60-second lease every 30 seconds for as long as it is working.</p></div></li>
+              <li><div><h3>Publish</h3><p>Tool calls, progress, and board panels stream back as events. Every surface watching the log sees them at the same moment.</p></div></li>
+              <li><div><h3>Settle &amp; recall</h3><p>Results survive log compaction. Any peer can pull an old result back with <span class="mono">recall_task</span> instead of re-running the work.</p></div></li>
+            </ol>
+          </div>
+
+          <div class="panel" data-od-id="how-feed">
+            <div class="panel-head"><span class="title">Event log</span><span class="spacer"></span><span class="count">append-only</span></div>
+            <div class="panel-body flush">
+              <div class="feed">
+                <div class="evt" data-kind="declared"><span class="seq">41166</span><div><span class="kind">task.declared</span><span class="subj">cve.audit · persona netops <span class="packtag">pack</span></span></div></div>
+                <div class="evt" data-kind="claimed"><span class="seq">41167</span><div><span class="kind">task.claimed</span><span class="subj">peer-02 · lease 60s</span></div></div>
+                <div class="evt" data-kind="tool"><span class="seq">41168</span><div><span class="kind">tool.called</span><span class="subj">forward_snapshots · read <span class="packtag">pack</span></span></div></div>
+                <div class="evt"><span class="seq">41169</span><div><span class="kind">lease.renewed</span><span class="subj">peer-02 · ttl 60s</span></div></div>
+                <div class="evt" data-kind="tool"><span class="seq">41170</span><div><span class="kind">tool.called</span><span class="subj">forward_cve_audit · read <span class="packtag">pack</span></span></div></div>
+                <div class="evt"><span class="seq">41173</span><div><span class="kind">board.panel</span><span class="subj">canvas:default · metrics</span></div></div>
+                <div class="evt" data-kind="completed"><span class="seq">41174</span><div><span class="kind">task.completed</span><span class="subj">11 critical / 34 high</span></div></div>
+                <div class="evt" data-kind="declared"><span class="seq">41175</span><div><span class="kind">task.declared</span><span class="subj">tsk-9f2b · remediate.acl</span></div></div>
+                <div class="evt" data-kind="tool"><span class="seq">41176</span><div><span class="kind">grant.requested</span><span class="subj">ssh_provision · awaiting human <span class="packtag">pack</span></span></div></div>
+              </div>
+            </div>
+            <p class="meta" style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--border-soft);line-height:1.5">
+              The lifecycle is core. Rows tagged <span class="packtag">pack</span> are tools a plugin contributed —
+              core never names them.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- the extension boundary -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="packs" data-od-id="packs">
+      <div class="container-wide" style="max-width:1440px">
+        <div style="max-width:52ch;margin-bottom:var(--space-8)">
+          <p class="eyebrow" style="margin-bottom:var(--space-4)">Everything is a plugin</p>
+          <h2 style="font-size:var(--text-2xl)">The core is small. The capability is packaged.</h2>
+          <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+            weave ships a substrate, not a domain. Everything that knows about your network, your cloud, or your
+            codebase arrives as a signed package — and the surface always tells you which is which.
+          </p>
+        </div>
+
+        <div class="boundary">
+          <div class="core" data-od-id="boundary-core">
+            <div class="row-between" style="margin-bottom:var(--space-2)">
+              <h3>Core — <span class="mono" style="font-size:var(--text-sm)">gaberger/weave</span></h3>
+              <span class="pill pill-accent">MIT</span>
+            </div>
+            <p style="color:var(--muted);font-size:var(--text-sm)">The event log and everything that reads or guards it.</p>
+            <ul>
+              <li>substrate · claim / lease / settle</li>
+              <li>gateway — the only write path</li>
+              <li>blackboard · SSE + replay</li>
+              <li>effect taxonomy + the grant gate</li>
+              <li>persona &amp; plugin resolution</li>
+              <li>compaction · <span class="mono">recall_task</span></li>
+            </ul>
+          </div>
+
+          <div class="pack" data-od-id="boundary-pack">
+            <div class="row-between" style="margin-bottom:var(--space-2)">
+              <h3>Pack — <span class="mono" style="font-size:var(--text-sm)">gaberger/weave-plugins</span></h3>
+              <span class="packtag">out of tree</span>
+            </div>
+            <p style="color:var(--muted);font-size:var(--text-sm)">Registered by identity, verified as a whole, disabled until reviewed.</p>
+            <ul>
+              <li>7 personas incl. <span class="mono">netops</span></li>
+              <li>25 vendored python skills</li>
+              <li>171 files under sha256 integrity</li>
+              <li>the digital-twin views</li>
+              <li>its own <span class="mono">GUARD.md</span> contract</li>
+            </ul>
+          </div>
+        </div>
+
+        <p class="meta" style="margin-top:var(--space-5);max-width:70ch;line-height:1.6">
+          Tools register only when the active pack bundles them. Disable the pack and the netops persona, its tools
+          and its twin views leave the interface — the log, the leases and the gate stay exactly where they were.
+        </p>
+      </div>
+    </section>
+
+    <!-- surfaces -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="surfaces" data-od-id="surfaces">
+      <div class="container-wide" style="max-width:1440px">
+        <div class="row-between wrap" style="margin-bottom:var(--space-8)">
+          <h2 style="font-size:var(--text-2xl);max-width:20ch">Three surfaces, one stream.</h2>
+          <p class="meta" style="max-width:34ch;text-align:right">clients of the same SSE feed · nothing writes except the gateway</p>
+        </div>
+        <div class="grid-3">
+          <a class="surface" href="console.html" data-od-id="surface-console">
+            <div class="peek">
+              <span class="toolcall" style="align-self:flex-start"><span class="fn">path_search</span><span class="eff">· read</span></span>
+              <span class="meta">board.panel → canvas:default</span>
+            </div>
+            <h3>Command console</h3>
+            <p style="color:var(--muted);font-size:var(--text-sm);margin-top:6px">Voice and text in one transcript, with tool calls and board panels rendered inline.</p>
+            <span class="go">console.html →</span>
+          </a>
+          <a class="surface" href="network.html" data-od-id="surface-network">
+            <div class="peek" style="padding:0">
+              <svg class="topo" viewBox="0 0 260 76" style="height:76px" aria-hidden="true">
+                <line class="edge" x1="40" y1="38" x2="110" y2="20" /><line class="edge" x1="40" y1="38" x2="110" y2="56" />
+                <line class="edge hot" x1="110" y1="20" x2="180" y2="38" /><line class="edge" x1="110" y1="56" x2="180" y2="38" />
+                <line class="edge hot" x1="180" y1="38" x2="228" y2="38" />
+                <circle class="n-core" cx="40" cy="38" r="7" /><circle class="n-peer" cx="110" cy="20" r="5" />
+                <circle class="n-warn" cx="110" cy="56" r="5" /><circle class="n-peer" cx="180" cy="38" r="6" />
+                <circle class="n-up" cx="228" cy="38" r="5" />
+              </svg>
+            </div>
+            <h3>Swarm</h3>
+            <p style="color:var(--muted);font-size:var(--text-sm);margin-top:6px">Peers, claims and leases — core. The digital twin is an overlay the pack contributes.</p>
+            <span class="go">network.html →</span>
+          </a>
+          <a class="surface" href="task-detail.html" data-od-id="surface-task">
+            <div class="peek" style="padding:0;justify-content:flex-start">
+              <span class="evt" data-kind="claimed" style="animation:none"><span class="seq">41167</span><span><span class="kind">task.claimed</span><span class="subj">peer-02 · lease 60s</span></span></span>
+              <span class="evt" data-kind="completed" style="animation:none"><span class="seq">41174</span><span><span class="kind">task.completed</span><span class="subj">settled in 1m 52s</span></span></span>
+            </div>
+            <h3>Task record</h3>
+            <p style="color:var(--muted);font-size:var(--text-sm);margin-top:6px">The full lifecycle of one task, down to the raw events that produced it.</p>
+            <span class="go">task-detail.html →</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- roadmap -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="roadmap" data-od-id="roadmap">
+      <div class="container-wide" style="max-width:1440px">
+        <div style="max-width:52ch;margin-bottom:var(--space-8)">
+          <p class="eyebrow" style="margin-bottom:var(--space-4)">Where it is going</p>
+          <h2 style="font-size:var(--text-2xl)">Shipped, and honestly scored.</h2>
+          <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+            These numbers come from an adversarial read of this repo — eight skeptics scoring with file-and-line
+            evidence, then a red-team pass re-verifying them. It is not marketing. The worst score is ours to fix.
+          </p>
+          <p class="meta" style="margin-top:var(--space-3)">source · <span class="mono">docs/jarvis-gap-analysis.md</span></p>
+        </div>
+
+        <!-- the scorecard the phases are measured against -->
+        <div class="scorecard" data-od-id="scorecard">
+          <div class="dim-row"><span class="n">Digital-twin interaction</span><span class="p num">40%</span><span class="bar"><i style="width:40%"></i></span></div>
+          <div class="dim-row mid"><span class="n">Voice assistant</span><span class="p num">28%</span><span class="bar"><i style="width:28%"></i></span></div>
+          <div class="dim-row mid"><span class="n">Trust / safety / agency</span><span class="p num">27%</span><span class="bar"><i style="width:27%"></i></span></div>
+          <div class="dim-row mid"><span class="n">Proactive autonomy</span><span class="p num">17%</span><span class="bar"><i style="width:17%"></i></span></div>
+          <div class="dim-row low"><span class="n">Realtime interactivity</span><span class="p num">15%</span><span class="bar"><i style="width:15%"></i></span></div>
+          <div class="dim-row low"><span class="n">Multimodal / ambient</span><span class="p num">14%</span><span class="bar"><i style="width:14%"></i></span></div>
+          <div class="dim-row low"><span class="n">Memory / personalization</span><span class="p num">13%</span><span class="bar"><i style="width:13%"></i></span></div>
+          <div class="dim-row low"><span class="n">Visual blackboard</span><span class="p num">5%</span><span class="bar"><i style="width:5%"></i></span></div>
+        </div>
+
+        <div>
+          <article class="log-row" data-od-id="phase-1">
+            <span class="meta">Phase 1 · shipped</span>
+            <div>
+              <h3>An outbound surface</h3>
+              <p>SSE stream, a replayable event feed, the web blackboard, force-directed twin rendering, and browser-native speech in and out. One missing capability was blocking three dimensions at once.</p>
+            </div>
+            <span class="pill pill-ok pull">blackboard 5 → 30%</span>
+          </article>
+          <article class="log-row" data-od-id="phase-2">
+            <span class="meta">Phase 2 · next</span>
+            <div>
+              <h3>Realtime voice loop</h3>
+              <p>A conversational path that bypasses the job substrate — full duplex with echo cancellation, token-delta streaming to TTS, and off the macOS-only guard.</p>
+            </div>
+            <span class="pill pull">voice 28%</span>
+          </article>
+          <article class="log-row" data-od-id="phase-3">
+            <span class="meta">Phase 3</span>
+            <div>
+              <h3>Genuine autonomy</h3>
+              <p>A durable standing-goal abstraction that survives restart, and a loop runner that recalls prior ticks and decides whether acting is worth it.</p>
+            </div>
+            <span class="pill pull">autonomy 17%</span>
+          </article>
+          <article class="log-row" data-od-id="phase-4">
+            <span class="meta">Phase 4</span>
+            <div>
+              <h3>User memory and a trust envelope</h3>
+              <p>Identity, preference and interaction nodes in the knowledge graph, plus a learned envelope for what may run unattended — beyond today's authorization skeleton.</p>
+            </div>
+            <span class="pill pull">memory 13%</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- cta -->
+    <section class="section" style="padding-block:var(--section-y-desktop);border-top:1px solid var(--border);text-align:center" data-od-id="cta">
+      <div class="container" style="max-width:640px">
+        <h2 style="font-size:var(--text-2xl)">Start the pool. Then just ask it something.</h2>
+        <p class="lead" style="margin:var(--space-4) auto var(--space-6);max-width:46ch">
+          Two commands bring up the surface and the workers. Everything else happens in the log.
+        </p>
+        <div class="row" style="justify-content:center;gap:var(--space-3)">
+          <a class="btn btn-primary" href="console.html">Open the console</a>
+          <a class="btn" href="surfaces.html">Command surface</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
+    <div class="container-wide row-between wrap" style="max-width:1440px">
+      <span class="meta">
+        weave <span class="mono">v0.1.0</span> · MIT · © 2026 Gary Berger ·
+        <a class="hot" href="https://github.com/weave-registry/weave">gaberger/weave</a>
+      </span>
+      <span class="meta">packs · <a class="hot mono" href="https://github.com/weave-registry/weave-labs">gaberger/weave-plugins</a></span>
+    </div>
+  </footer>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  /* scale the live console shot to fit its frame, and keep it fitted on resize */
+  const frame = document.getElementById('shot-frame');
+  const fit = () => {
+    const vp = frame.parentElement;
+    const w = vp.clientWidth;
+    if (!w) return;
+    frame.style.transform = 'scale(' + (w / frame.offsetWidth) + ')';
+  };
+  fit();
+  window.addEventListener('resize', fit);
+  frame.addEventListener('load', fit);
+})();
+</script>
+</body>
+</html>

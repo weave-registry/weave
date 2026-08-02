@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Graph replay · weave</title>
+<link rel="icon" href="build/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="colors_and_type.css" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<link rel="stylesheet" href="../assets/hud-surfaces.css" />
+<link rel="stylesheet" href="../assets/hud-graph.css" />
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="app page">
+
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" /></svg>
+      <span>weave<span class="sub" style="margin-left:8px">graph replay</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="graph-replay.html" aria-current="page">Replay</a>
+      <a href="plugins.html">Packs</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <span class="packtag" title="This surface renders an illustrative synthetic session, not live substrate data">synthetic session</span>
+      <span class="meta">seq <span class="num" id="seq">—</span></span>
+      <span class="meta num" id="clock">00:00</span>
+    </div>
+  </header>
+
+  <div class="workspace" style="grid-template-columns: 276px 1fr 328px;">
+
+    <!-- ── left rail: dataset + lenses ──────────────────────────────── -->
+    <aside class="rail" data-od-id="rail-lenses">
+
+      <section class="panel" style="flex:none" data-od-id="dataset-switcher">
+        <div class="panel-head"><span class="title">Graph</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-2)">
+          <button class="btn btn-sm btn-mono" data-ds="task" aria-pressed="true">Task graph</button>
+          <button class="btn btn-sm btn-mono" data-ds="knowledge" aria-pressed="false">Knowledge</button>
+          <button class="btn btn-sm btn-mono" data-ds="network" aria-pressed="false">Network</button>
+          <p class="meta" id="ds-note" style="line-height:1.6;margin-top:var(--space-2)"></p>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1 1 auto" data-od-id="lenses">
+        <div class="panel-head">
+          <span class="title">Agent lenses</span><span class="spacer"></span>
+          <button class="btn btn-sm btn-quiet btn-mono" id="lens-clear">All</button>
+        </div>
+        <div class="panel-body tight scroll-y" id="lens-list"></div>
+      </section>
+
+    </aside>
+
+    <!-- ── centre: the night map + playback deck ────────────────────── -->
+    <section class="replay" data-od-id="replay">
+
+      <div class="replay-head">
+        <span class="label" id="stage-label">Task graph</span>
+        <span class="meta mono" id="stage-sub"></span>
+        <span class="spacer"></span>
+        <span class="meta">touched <span class="num" id="k-touched">0</span>/<span class="num" id="k-total">0</span></span>
+        <span class="meta">mutations <span class="num warn-t" id="k-mut">0</span></span>
+        <span class="meta">failures <span class="num bad" id="k-fail">0</span></span>
+      </div>
+
+      <div class="replay-canvas" data-od-id="replay-canvas">
+        <svg id="canvas" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="Graph replay canvas — nodes illuminate as the session playhead passes over them">
+          <g id="edges"></g>
+          <g id="nodes"></g>
+        </svg>
+        <div class="reticle" aria-hidden="true">
+          <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+        </div>
+      </div>
+
+      <div class="playdeck" data-od-id="playdeck">
+        <div class="hist" id="hist" role="slider" tabindex="0"
+             aria-label="Session histogram — click or use arrow keys to seek"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+        <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" aria-label="Scrub session time" />
+        <div class="playdeck-row" style="margin-top:var(--space-2)">
+          <button class="btn btn-primary btn-sm" id="play">Play</button>
+          <button class="btn btn-sm btn-mono" id="speed">1&times;</button>
+          <button class="btn btn-sm btn-mono" id="next-mut">Next mutation</button>
+          <span class="meta mono num" id="tread">00:00 / 00:00</span>
+          <span class="spacer"></span>
+          <span class="meta"><span class="kbd">Space</span> play · <span class="kbd">←</span><span class="kbd">→</span> step · <span class="kbd">E</span> next mutation</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── right rail: inspector + ramp ─────────────────────────────── -->
+    <aside class="rail rail-right" data-od-id="rail-inspector">
+
+      <section class="panel" style="flex:1 1 auto" data-od-id="inspector">
+        <div class="panel-head">
+          <span class="title">Inspector</span><span class="spacer"></span>
+          <span class="count" id="insp-count">—</span>
+        </div>
+        <div class="panel-body scroll-y" id="insp">
+          <p class="meta" style="line-height:1.65">Select a node on the map to pin its visit history.</p>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:none" data-od-id="ramp-legend">
+        <div class="panel-head"><span class="title">Attention ramp</span></div>
+        <div class="panel-body">
+          <div class="ramp">
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:var(--touch-untouched);background:color-mix(in oklab,var(--surface) 70%,black)"></span>
+              <span class="n">Untouched</span><span class="d">dark</span></div>
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:var(--touch-seen);background:color-mix(in oklab,var(--touch-seen) 22%,transparent)"></span>
+              <span class="n">Seen</span><span class="d">muted</span></div>
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:var(--touch-read);background:color-mix(in oklab,var(--touch-read) 26%,transparent)"></span>
+              <span class="n">Read</span><span class="d">cool · observe</span></div>
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:var(--touch-mutated);background:color-mix(in oklab,var(--touch-mutated) 26%,transparent)"></span>
+              <span class="n">Mutated</span><span class="d">warm · gated</span></div>
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:var(--touch-failed);background:color-mix(in oklab,var(--touch-failed) 26%,transparent)"></span>
+              <span class="n">Failed</span><span class="d">rose</span></div>
+            <div class="ramp-row">
+              <span class="ramp-sw" style="border-color:color-mix(in oklab,var(--muted) 55%,transparent);border-style:dashed"></span>
+              <span class="n">Ghost</span><span class="d">cancelled</span></div>
+          </div>
+          <hr class="rule" style="margin:var(--space-4) 0" />
+          <p class="meta" style="line-height:1.65">
+            Glow radius is <span class="hot">accumulated</span> attention, not live state.
+            The pulsing ring is live. Cool means observation, warm means mutation.
+          </p>
+        </div>
+      </section>
+
+    </aside>
+
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   Graph replay — illustrative synthetic sessions.
+
+   NOTE ON DATA: every event below is fabricated for demonstration. Node
+   names use weave's real vocabulary so the surface reads truthfully, but
+   no number here came from a running substrate. The topbar says so.
+
+   Visual grammar adapted from cosmtrek/mindwalk; translation recorded in
+   context/mindwalk-visual-study.md.
+   ══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var PEERS = {
+    'peer-01': { rt: 'netops · opus-5', health: 'busy' },
+    'peer-02': { rt: 'netops · sonnet-5', health: 'up' },
+    'peer-03': { rt: 'developer · opus-5', health: 'up' },
+    'peer-04': { rt: 'netops · ollama qwen2.5', health: 'degraded' }
+  };
+
+  /* e = [t seconds, nodeId, peer, kind, label] — kind ∈ read|mutate|fail|claim|join */
+  var DATA = {
+    task: {
+      label: 'Task graph',
+      sub: 'fan-out / join lineage · 12 tasks · 3 peers',
+      note: 'A declared goal fans out, runs concurrently with lineage intact, then joins back. Node size is sub-task count.',
+      shape: 'rect',
+      nodes: [
+        { id: 'tsk-9f21', t: 'Audit CVE posture', x: 500, y: 58,  w: 5 },
+        { id: 'tsk-4d48', t: 'Inventory edge',    x: 118, y: 196, w: 2 },
+        { id: 'tsk-f3cc', t: 'Inventory core',    x: 309, y: 196, w: 2 },
+        { id: 'tsk-6d1a', t: 'Pull CVE feed',     x: 500, y: 196, w: 2 },
+        { id: 'tsk-50e7', t: 'Map firmware',      x: 691, y: 196, w: 2 },
+        { id: 'tsk-2a91', t: 'Map firmware (retry)', x: 882, y: 196, w: 2 },
+        { id: 'tsk-0c17', t: 'Draft change record', x: 882, y: 58, w: 1, ghost: true },
+        { id: 'tsk-42d8', t: 'Correlate CVE ↔ fw', x: 500, y: 330, w: 4 },
+        { id: 'tsk-3310', t: 'Remediation plan',  x: 335, y: 452, w: 2 },
+        { id: 'tsk-7b02', t: 'Score blast radius', x: 665, y: 452, w: 2 },
+        { id: 'tsk-88ca', t: 'Gate: push config', x: 500, y: 578, w: 3 },
+        { id: 'tsk-1f40', t: 'Verify post-change', x: 830, y: 578, w: 1 }
+      ],
+      edges: [
+        ['tsk-9f21','tsk-4d48','lineage'], ['tsk-9f21','tsk-f3cc','lineage'],
+        ['tsk-9f21','tsk-6d1a','lineage'], ['tsk-9f21','tsk-50e7','lineage'],
+        ['tsk-9f21','tsk-0c17','lineage'],
+        ['tsk-50e7','tsk-2a91','lineage'],
+        ['tsk-4d48','tsk-42d8','join'], ['tsk-f3cc','tsk-42d8','join'],
+        ['tsk-6d1a','tsk-42d8','join'], ['tsk-2a91','tsk-42d8','join'],
+        ['tsk-42d8','tsk-3310','lineage'], ['tsk-42d8','tsk-7b02','lineage'],
+        ['tsk-3310','tsk-88ca','join'], ['tsk-7b02','tsk-88ca','join'],
+        ['tsk-88ca','tsk-1f40','lineage']
+      ],
+      events: [
+        [4,'tsk-9f21','peer-01','claim','claimed · lease 90s'],
+        [9,'tsk-9f21','peer-01','read','read declared spec'],
+        [14,'tsk-9f21','peer-01','mutate','fan out · 5 children'],
+        [21,'tsk-4d48','peer-01','claim','claimed · lease 90s'],
+        [23,'tsk-f3cc','peer-02','claim','claimed · lease 90s'],
+        [26,'tsk-6d1a','peer-03','claim','claimed · lease 90s'],
+        [28,'tsk-50e7','peer-02','claim','claimed · lease 90s'],
+        [34,'tsk-4d48','peer-01','read','nqe_query · 84 devices'],
+        [39,'tsk-6d1a','peer-03','read','http_fetch · nvd feed'],
+        [44,'tsk-f3cc','peer-02','read','nqe_query · 128 devices'],
+        [51,'tsk-4d48','peer-01','read','nqe_query · interface desc'],
+        [58,'tsk-50e7','peer-02','read','ssh_show · version'],
+        [63,'tsk-6d1a','peer-03','read','parse · 1,204 CVE records'],
+        [71,'tsk-50e7','peer-02','fail','lease lapsed · peer unreachable'],
+        [76,'tsk-4d48','peer-01','mutate','publish · 84 rows'],
+        [82,'tsk-2a91','peer-01','claim','requeued · claimed by peer-01'],
+        [89,'tsk-f3cc','peer-02','read','nqe_query · lldp neighbours'],
+        [95,'tsk-2a91','peer-01','read','ssh_show · version'],
+        [103,'tsk-6d1a','peer-03','mutate','publish · 1,204 records'],
+        [110,'tsk-f3cc','peer-02','mutate','publish · 128 rows'],
+        [118,'tsk-2a91','peer-01','read','ssh_show · inventory'],
+        [126,'tsk-2a91','peer-01','mutate','publish · 212 rows'],
+        [134,'tsk-42d8','peer-03','claim','join · 4 parents resolved'],
+        [141,'tsk-42d8','peer-03','read','load · 212 devices'],
+        [149,'tsk-42d8','peer-03','read','load · 1,204 CVE records'],
+        [158,'tsk-42d8','peer-03','read','correlate · pass 1'],
+        [167,'tsk-42d8','peer-03','read','correlate · pass 2'],
+        [176,'tsk-42d8','peer-03','mutate','publish · 6 findings'],
+        [186,'tsk-3310','peer-01','claim','claimed · lease 90s'],
+        [188,'tsk-7b02','peer-02','claim','claimed · lease 90s'],
+        [196,'tsk-3310','peer-01','read','read · 6 findings'],
+        [203,'tsk-7b02','peer-02','read','path_trace · payments vip'],
+        [212,'tsk-7b02','peer-02','read','path_trace · branch vpn'],
+        [221,'tsk-3310','peer-01','read','read · remediation matrix'],
+        [229,'tsk-7b02','peer-02','mutate','publish · blast radius 2 devices'],
+        [238,'tsk-3310','peer-01','mutate','publish · plan v1'],
+        [248,'tsk-88ca','peer-01','claim','join · 2 parents resolved'],
+        [255,'tsk-88ca','peer-01','read','render predicted changeset'],
+        [263,'tsk-88ca','peer-01','mutate','ssh_provision · IRREVERSIBLE · gated'],
+        [292,'tsk-88ca','peer-01','mutate','granted · applied to 2 devices'],
+        [301,'tsk-1f40','peer-04','claim','claimed · lease 90s'],
+        [308,'tsk-1f40','peer-04','read','nqe_verify · post-change'],
+        [316,'tsk-1f40','peer-04','mutate','publish · verified']
+      ]
+    },
+
+    knowledge: {
+      label: 'Knowledge graph',
+      sub: 'entities and relations · 13 nodes',
+      note: 'Same engine, different graph. Nodes are entities the swarm reasoned over; edges are asserted relations. Node size is degree.',
+      shape: 'circle',
+      nodes: [
+        { id: 'substrate', t: 'substrate', x: 500, y: 96,  w: 5 },
+        { id: 'peer',      t: 'peer',      x: 250, y: 200, w: 4 },
+        { id: 'task',      t: 'task',      x: 750, y: 200, w: 5 },
+        { id: 'lease',     t: 'lease',     x: 130, y: 330, w: 3 },
+        { id: 'claim',     t: 'claim',     x: 340, y: 330, w: 3 },
+        { id: 'effect',    t: 'effect',    x: 620, y: 330, w: 4 },
+        { id: 'grant',     t: 'grant gate', x: 860, y: 330, w: 3 },
+        { id: 'persona',   t: 'persona',   x: 150, y: 470, w: 2 },
+        { id: 'pack',      t: 'pack',      x: 360, y: 470, w: 3 },
+        { id: 'snapshot',  t: 'snapshot',  x: 570, y: 470, w: 2 },
+        { id: 'device',    t: 'device',    x: 780, y: 470, w: 3 },
+        { id: 'cve',       t: 'CVE',       x: 660, y: 588, w: 2 },
+        { id: 'nqe',       t: 'NQE query', x: 900, y: 588, w: 1, ghost: true }
+      ],
+      edges: [
+        ['substrate','peer','relation'], ['substrate','task','relation'],
+        ['peer','claim','relation'], ['claim','lease','relation'],
+        ['task','effect','relation'], ['effect','grant','relation'],
+        ['peer','persona','relation'], ['persona','pack','relation'],
+        ['pack','effect','relation'], ['task','snapshot','relation'],
+        ['snapshot','device','relation'], ['device','cve','relation'],
+        ['device','nqe','relation'], ['claim','task','join']
+      ],
+      events: [
+        [6,'substrate','peer-03','read','entity resolved'],
+        [13,'task','peer-03','read','entity resolved'],
+        [20,'peer','peer-03','read','entity resolved'],
+        [29,'claim','peer-03','read','relation peer→claim'],
+        [37,'lease','peer-03','read','relation claim→lease'],
+        [46,'effect','peer-01','read','relation task→effect'],
+        [55,'grant','peer-01','read','relation effect→grant'],
+        [64,'effect','peer-01','mutate','assert · irreversible ⇒ gate'],
+        [74,'snapshot','peer-02','read','relation task→snapshot'],
+        [83,'device','peer-02','read','212 instances'],
+        [92,'cve','peer-02','read','1,204 instances'],
+        [101,'device','peer-02','mutate','assert · device↔CVE 6 edges'],
+        [112,'persona','peer-04','read','relation peer→persona'],
+        [121,'pack','peer-04','read','relation persona→pack'],
+        [130,'pack','peer-04','fail','embedding timeout · retried'],
+        [141,'pack','peer-01','read','relation pack→effect'],
+        [152,'substrate','peer-01','mutate','commit · 14 relations']
+      ]
+    },
+
+    network: {
+      label: 'Network graph',
+      sub: 'devices and paths · 11 nodes',
+      note: 'Same engine again. Nodes are devices, edges are reachable links. Node size is interface count.',
+      shape: 'circle',
+      nodes: [
+        { id: 'collector', t: 'collector',    x: 500, y: 90,  w: 4 },
+        { id: 'core-01',   t: 'core-sw-01',   x: 300, y: 220, w: 5 },
+        { id: 'core-02',   t: 'core-sw-02',   x: 700, y: 220, w: 5 },
+        { id: 'edge-04',   t: 'edge-rtr-04',  x: 140, y: 360, w: 3 },
+        { id: 'edge-07',   t: 'edge-rtr-07',  x: 340, y: 360, w: 3 },
+        { id: 'edge-11',   t: 'edge-rtr-11',  x: 560, y: 360, w: 3 },
+        { id: 'dc2-fw',    t: 'dc2-fw-02',    x: 800, y: 360, w: 4 },
+        { id: 'payments',  t: 'payments-vip', x: 240, y: 500, w: 2 },
+        { id: 'branch',    t: 'branch-vpn',   x: 470, y: 500, w: 2 },
+        { id: 'dmz',       t: 'dmz-seg',      x: 720, y: 500, w: 2 },
+        { id: 'legacy',    t: 'legacy-rtr-02', x: 920, y: 500, w: 1, ghost: true }
+      ],
+      edges: [
+        ['collector','core-01','link'], ['collector','core-02','link'],
+        ['core-01','edge-04','link'], ['core-01','edge-07','link'],
+        ['core-02','edge-11','link'], ['core-02','dc2-fw','link'],
+        ['edge-04','payments','link'], ['edge-07','branch','link'],
+        ['edge-11','branch','link'], ['dc2-fw','dmz','link'],
+        ['dc2-fw','legacy','link'], ['core-01','core-02','link']
+      ],
+      events: [
+        [5,'collector','peer-02','claim','snapshot 212984 started'],
+        [11,'core-01','peer-02','read','lldp neighbours'],
+        [18,'core-02','peer-02','read','lldp neighbours'],
+        [27,'edge-04','peer-02','read','show version'],
+        [35,'edge-07','peer-02','read','show version'],
+        [43,'edge-11','peer-02','read','show version'],
+        [52,'dc2-fw','peer-04','read','show version'],
+        [61,'legacy','peer-04','fail','unreachable · ssh timeout'],
+        [70,'payments','peer-01','read','path_trace hop 3'],
+        [79,'edge-04','peer-01','read','path_trace hop 2'],
+        [88,'branch','peer-01','read','path_trace hop 4'],
+        [97,'edge-07','peer-01','read','acl inspect'],
+        [107,'dmz','peer-04','read','acl inspect'],
+        [118,'edge-04','peer-01','mutate','ssh_provision · description'],
+        [128,'edge-07','peer-01','mutate','ssh_provision · description'],
+        [139,'collector','peer-02','mutate','snapshot committed']
+      ]
+    }
+  };
+
+  /* ── state ─────────────────────────────────────────────────────────── */
+  var ds = 'task', t = 0, playing = false, speed = 1, lens = null, sel = null;
+  var raf = null, last = 0;
+  /* Bucket count scales with the dataset. Fixed buckets barcode a small
+     session: 16 events across 22 buckets means every bucket holds one, max
+     resolves to 1, and every bar computes to 100%. Aim for ~2 events per
+     bucket, which is where observation and mutation phases become readable. */
+  function buckets() {
+    return Math.max(10, Math.min(26, Math.round(D().events.length / 2)));
+  }
+  var $ = function (id) { return document.getElementById(id); };
+
+  function D() { return DATA[ds]; }
+  function T() { var e = D().events; return e[e.length - 1][0] + 24; }
+  function mmss(s) {
+    s = Math.max(0, Math.round(s));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  var RANK = { untouched: 0, seen: 1, read: 2, mutated: 3, failed: 4 };
+
+  /* Fold the event stream up to `t` into per-node touch state + heat. */
+  function fold() {
+    var st = {};
+    D().nodes.forEach(function (n) {
+      st[n.id] = { touch: n.ghost ? 'ghost' : 'untouched', heat: 0, hits: 0, peers: {}, visits: [], live: false };
+    });
+    D().events.forEach(function (e) {
+      var id = e[1]; if (!st[id]) return;
+      if (e[0] > t) return;
+      var s = st[id];
+      var next = e[3] === 'mutate' ? 'mutated' : e[3] === 'fail' ? 'failed' : e[3] === 'claim' ? 'seen' : 'read';
+      if (s.touch === 'ghost') s.touch = next;
+      else if (RANK[next] > RANK[s.touch]) s.touch = next;
+      s.hits++;
+      s.peers[e[2]] = (s.peers[e[2]] || 0) + 1;
+      s.visits.push(e);
+      if (t - e[0] < 7) s.live = true;
+    });
+    Object.keys(st).forEach(function (k) { st[k].heat = Math.min(1, st[k].hits * 0.26); });
+    return st;
+  }
+
+  /* ── build the SVG once per dataset ────────────────────────────────── */
+  function build() {
+    var d = D(), pos = {};
+    d.nodes.forEach(function (n) { pos[n.id] = n; });
+
+    var eg = '';
+    d.edges.forEach(function (e, i) {
+      var a = pos[e[0]], b = pos[e[1]]; if (!a || !b) return;
+      var my = (a.y + b.y) / 2;
+      eg += '<path class="gedge" id="e' + i + '" data-kind="' + e[2] + '" d="M' + a.x + ' ' + a.y +
+            ' C' + a.x + ' ' + my + ' ' + b.x + ' ' + my + ' ' + b.x + ' ' + b.y + '"></path>';
+    });
+    $('edges').innerHTML = eg;
+
+    var ng = '';
+    d.nodes.forEach(function (n) {
+      var body;
+      if (d.shape === 'rect') {
+        var w = 132, h = 32;
+        body = '<rect class="body" x="' + (n.x - w / 2) + '" y="' + (n.y - h / 2) + '" width="' + w + '" height="' + h + '" rx="8"></rect>' +
+               '<rect class="halo" x="' + (n.x - w / 2 - 5) + '" y="' + (n.y - h / 2 - 5) + '" width="' + (w + 10) + '" height="' + (h + 10) + '" rx="12"></rect>' +
+               '<text class="lbl" x="' + n.x + '" y="' + (n.y + 3) + '">' + n.t + '</text>' +
+               '<text class="sub" x="' + n.x + '" y="' + (n.y + h / 2 + 13) + '">' + n.id + '</text>';
+      } else {
+        var r = 12 + n.w * 3;
+        body = '<circle class="body" cx="' + n.x + '" cy="' + n.y + '" r="' + r + '"></circle>' +
+               '<circle class="halo" cx="' + n.x + '" cy="' + n.y + '" r="' + (r + 6) + '"></circle>' +
+               '<text class="lbl" x="' + n.x + '" y="' + (n.y + r + 15) + '">' + n.t + '</text>';
+      }
+      ng += '<g class="gnode" id="n-' + n.id + '" data-id="' + n.id + '" tabindex="0" role="button" aria-label="' + n.t + '">' + body + '</g>';
+    });
+    $('nodes').innerHTML = ng;
+
+    Array.prototype.forEach.call(document.querySelectorAll('.gnode'), function (g) {
+      var pick = function () { sel = g.getAttribute('data-id'); paint(); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); }
+      });
+    });
+
+    $('stage-label').textContent = d.label;
+    $('stage-sub').textContent = d.sub;
+    $('ds-note').textContent = d.note;
+    $('k-total').textContent = d.nodes.length;
+    buildLenses();
+    buildHist();
+  }
+
+  function buildLenses() {
+    var counts = {};
+    D().events.forEach(function (e) { counts[e[2]] = (counts[e[2]] || 0) + 1; });
+    var html = '';
+    Object.keys(PEERS).forEach(function (p) {
+      if (!counts[p]) return;
+      html += '<button class="lens" data-peer="' + p + '" aria-pressed="' + (lens === p) + '">' +
+        '<span class="peer" data-health="' + PEERS[p].health + '"><span class="sig"></span>' +
+        '<div><span class="id">' + p + '</span><span class="rt">' + PEERS[p].rt + '</span></div>' +
+        '<span class="ct">' + counts[p] + '</span></span></button>';
+    });
+    $('lens-list').innerHTML = html;
+    Array.prototype.forEach.call(document.querySelectorAll('.lens'), function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-peer');
+        lens = (lens === p) ? null : p;
+        buildLenses(); paint();
+      });
+    });
+  }
+
+  function buildHist() {
+    var d = D(), dur = T(), max = 0, cols = [], B = buckets();
+    for (var i = 0; i < B; i++) cols.push({ cool: 0, warm: 0, fail: 0 });
+    d.events.forEach(function (e) {
+      var i = Math.min(B - 1, Math.floor(e[0] / dur * B));
+      if (e[3] === 'mutate') cols[i].warm++;
+      else if (e[3] === 'fail') cols[i].fail++;
+      else cols[i].cool++;
+    });
+    cols.forEach(function (c) { max = Math.max(max, c.cool + c.warm + c.fail); });
+    if (!max) max = 1;
+    var html = '';
+    cols.forEach(function (c, i) {
+      html += '<div class="hcol" data-i="' + i + '">' +
+        (c.fail ? '<i class="hbar" data-tone="fail" style="height:' + (c.fail / max * 100) + '%"></i>' : '') +
+        (c.warm ? '<i class="hbar" data-tone="warm" style="height:' + (c.warm / max * 100) + '%"></i>' : '') +
+        (c.cool ? '<i class="hbar" data-tone="cool" style="height:' + (c.cool / max * 100) + '%"></i>' : '') +
+        '</div>';
+    });
+    $('hist').innerHTML = html;
+    $('hist').onclick = function (ev) {
+      var r = $('hist').getBoundingClientRect();
+      seek((ev.clientX - r.left) / r.width * T());
+    };
+  }
+
+  /* ── paint from state ──────────────────────────────────────────────── */
+  function paint() {
+    var d = D(), st = fold(), dur = T(), touched = 0, muts = 0, fails = 0;
+
+    d.nodes.forEach(function (n) {
+      var s = st[n.id], g = $('n-' + n.id); if (!g) return;
+      g.setAttribute('data-touch', s.touch);
+      g.style.setProperty('--heat', s.heat.toFixed(3));
+      g.setAttribute('data-live', s.live ? 'true' : 'false');
+      g.setAttribute('data-sel', sel === n.id ? 'true' : 'false');
+      var dim = lens && !s.peers[lens];
+      g.setAttribute('data-dim', dim ? 'true' : 'false');
+      if (s.touch !== 'untouched' && s.touch !== 'ghost') touched++;
+      if (s.touch === 'mutated') muts++;
+      if (s.touch === 'failed') fails++;
+    });
+
+    d.edges.forEach(function (e, i) {
+      var p = $('e' + i); if (!p) return;
+      var a = st[e[0]], b = st[e[1]];
+      var aOn = a && a.touch !== 'untouched' && a.touch !== 'ghost';
+      var bOn = b && b.touch !== 'untouched' && b.touch !== 'ghost';
+      p.setAttribute('data-traversed', (aOn && bOn) ? 'true' : 'false');
+      p.setAttribute('data-live', (a && a.live) || (b && b.live) ? 'true' : 'false');
+      p.setAttribute('data-fail', (a && a.touch === 'failed') || (b && b.touch === 'failed') ? 'true' : 'false');
+      var dim = lens && !((a && a.peers[lens]) && (b && b.peers[lens]));
+      p.setAttribute('data-dim', dim ? 'true' : 'false');
+    });
+
+    $('k-touched').textContent = touched;
+    $('k-mut').textContent = muts;
+    $('k-fail').textContent = fails;
+    $('clock').textContent = mmss(t);
+    $('tread').textContent = mmss(t) + ' / ' + mmss(dur);
+    $('seq').textContent = 41208 + d.events.filter(function (e) { return e[0] <= t; }).length;
+    $('scrub').value = Math.round(t / dur * 1000);
+
+    var B = buckets();
+    var bi = Math.min(B - 1, Math.floor(t / dur * B));
+    Array.prototype.forEach.call($('hist').children, function (c, i) {
+      c.setAttribute('data-past', i <= bi ? 'true' : 'false');
+      c.setAttribute('data-now', i === bi ? 'true' : 'false');
+    });
+    $('hist').setAttribute('aria-valuenow', Math.round(t / dur * 100));
+
+    paintInspector(st);
+  }
+
+  function paintInspector(st) {
+    if (!sel || !st[sel]) {
+      $('insp').innerHTML = '<p class="meta" style="line-height:1.65">Select a node on the map to pin its visit history.</p>';
+      $('insp-count').textContent = '—';
+      return;
+    }
+    var n = D().nodes.filter(function (x) { return x.id === sel; })[0];
+    var s = st[sel];
+    $('insp-count').textContent = s.hits + ' visit' + (s.hits === 1 ? '' : 's');
+
+    var peers = Object.keys(s.peers).map(function (p) {
+      return '<span class="chip">' + p + ' · ' + s.peers[p] + '</span>';
+    }).join('');
+
+    var visits = s.visits.slice().reverse().map(function (e) {
+      return '<div class="visit" data-kind="' + e[3] + '">' +
+        '<span class="vt">' + mmss(e[0]) + '</span>' +
+        '<span class="vk" title="' + e[4] + '">' + e[4] + '</span>' +
+        '<span class="vp">' + e[2] + '</span></div>';
+    }).join('') || '<p class="meta">Not yet reached by the playhead.</p>';
+
+    $('insp').innerHTML =
+      '<h3 style="font-size:var(--text-base)">' + n.t + '</h3>' +
+      '<p class="meta mono" style="margin-top:4px">' + n.id + '</p>' +
+      '<div class="kv" style="margin-top:var(--space-4)">' +
+        '<div><div class="k">State</div><div class="v">' + s.touch + '</div></div>' +
+        '<div><div class="k">Heat</div><div class="v">' + Math.round(s.heat * 100) + '%</div></div>' +
+      '</div>' +
+      (peers ? '<div class="chips" style="margin-top:var(--space-4)">' + peers + '</div>' : '') +
+      '<hr class="rule" style="margin:var(--space-4) 0" />' +
+      '<p class="label" style="margin-bottom:var(--space-2)">Visit history</p>' +
+      '<div class="visits">' + visits + '</div>';
+  }
+
+  /* ── transport ─────────────────────────────────────────────────────── */
+  function seek(v) { t = Math.max(0, Math.min(T(), v)); paint(); }
+
+  function tick(ts) {
+    if (!playing) return;
+    if (!last) last = ts;
+    var dt = (ts - last) / 1000; last = ts;
+    t += dt * 14 * speed;
+    if (t >= T()) { t = T(); setPlaying(false); }
+    paint();
+    if (playing) raf = requestAnimationFrame(tick);
+  }
+
+  function setPlaying(on) {
+    playing = on; last = 0;
+    $('play').textContent = on ? 'Pause' : 'Play';
+    if (on) { if (t >= T()) t = 0; raf = requestAnimationFrame(tick); }
+    else if (raf) { cancelAnimationFrame(raf); raf = null; }
+  }
+
+  function nextMutation() {
+    var e = D().events.filter(function (x) { return x[0] > t + 0.5 && x[3] === 'mutate'; })[0];
+    seek(e ? e[0] + 0.5 : T());
+  }
+
+  /* ── wiring ────────────────────────────────────────────────────────── */
+  $('play').addEventListener('click', function () { setPlaying(!playing); });
+  $('speed').addEventListener('click', function () {
+    speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+    $('speed').textContent = speed + '×';
+  });
+  $('next-mut').addEventListener('click', nextMutation);
+  $('scrub').addEventListener('input', function () {
+    setPlaying(false);
+    seek($('scrub').value / 1000 * T());
+  });
+  $('lens-clear').addEventListener('click', function () { lens = null; buildLenses(); paint(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ds]'), function (b) {
+    b.addEventListener('click', function () {
+      ds = b.getAttribute('data-ds');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-ds]'), function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+      setPlaying(false); t = 0; sel = null; lens = null;
+      build(); paint();
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); setPlaying(false); seek(t + 6); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); setPlaying(false); seek(t - 6); }
+    else if (e.key.toLowerCase() === 'e') { e.preventDefault(); setPlaying(false); nextMutation(); }
+  });
+
+  build();
+  seek(0);
+})();
+</script>
+</body>
+</html>

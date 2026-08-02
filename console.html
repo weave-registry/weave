@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Command Console · weave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  .convo { display: flex; flex-direction: column; min-height: 0; }
+  .convo-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+  .gate-line { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-3); padding: 6px 0; border-bottom: 1px solid var(--border-soft); font-family: var(--font-mono); font-size: var(--text-xs); }
+  .gate-line:last-child { border-bottom: 0; }
+  .gate-line .k { color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; padding-top: 2px; }
+  .gate-line .v { color: var(--fg); word-break: break-word; }
+  .diffline { font-family: var(--font-mono); font-size: var(--text-xs); padding: 2px var(--space-3); border-left: 2px solid transparent; }
+  .diffline.add { color: var(--success); border-left-color: var(--success); background: color-mix(in oklab, var(--success) 8%, transparent); }
+  .diffline.del { color: var(--danger); border-left-color: var(--danger); background: color-mix(in oklab, var(--danger) 8%, transparent); }
+  .diffline.ctx { color: var(--muted); }
+  .mini-topo { height: 168px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: color-mix(in oklab, var(--bg) 60%, transparent); }
+  @media (max-width: 920px) {
+    .convo-scroll { overflow: visible; }
+    .transcript { padding: var(--space-5) var(--space-4) var(--space-6); }
+    .composer { position: sticky; bottom: 0; }
+    .composer-bar { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="app page">
+  <!-- ─── top bar ──────────────────────────────────────────────────── -->
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" />
+        <circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">console</span></span>
+    </a>
+
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html" aria-current="page">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="task-detail.html">Tasks</a>
+      <a href="plugins.html">Packs</a>
+    </nav>
+
+    <div class="spacer"></div>
+
+    <div class="row" style="gap:var(--space-4)">
+      <span class="pill pill-ok" title="SSE stream connected"><span class="dot dot-live"></span> substrate live</span>
+      <span class="meta" title="Peers claiming work">pool <span class="num" id="pool-count">4</span>/4</span>
+      <span class="meta num" id="clock">--:--:--</span>
+      <button class="btn btn-sm btn-mono" id="mic-toggle" aria-pressed="false" title="Mute the microphone">Mic</button>
+      <button class="btn btn-sm btn-mono" id="spk-toggle" aria-pressed="false" title="Mute spoken replies">Sound</button>
+    </div>
+  </header>
+
+  <!-- ─── workspace ────────────────────────────────────────────────── -->
+  <div class="workspace" style="grid-template-columns: 288px 1fr 344px;">
+
+    <!-- left rail: peers + tasks -->
+    <aside class="rail" data-od-id="rail-peers">
+      <section class="panel" style="flex:none">
+        <div class="panel-head">
+          <span class="title">Peer pool</span>
+          <span class="spacer"></span>
+          <span class="count num" id="peer-busy">1 busy</span>
+        </div>
+        <div class="panel-body tight" id="peers">
+          <div class="peer" data-health="busy">
+            <span class="sig"></span>
+            <div>
+              <span class="id">peer-01</span>
+              <span class="rt">netops · opus-5</span>
+            </div>
+            <div class="gauge" style="--v:74"><span>74</span></div>
+          </div>
+          <div class="peer" data-health="up">
+            <span class="sig"></span>
+            <div>
+              <span class="id">peer-02</span>
+              <span class="rt">netops · sonnet-5</span>
+            </div>
+            <div class="gauge" style="--v:12"><span>12</span></div>
+          </div>
+          <div class="peer" data-health="up">
+            <span class="sig"></span>
+            <div>
+              <span class="id">peer-03</span>
+              <span class="rt">developer · opus-5</span>
+            </div>
+            <div class="gauge" style="--v:8"><span>8</span></div>
+          </div>
+          <div class="peer" data-health="degraded">
+            <span class="sig"></span>
+            <div>
+              <span class="id">peer-04</span>
+              <span class="rt">netops · ollama qwen2.5</span>
+            </div>
+            <div class="gauge" style="--v:31"><span>31</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head">
+          <span class="title">Task log</span>
+          <span class="spacer"></span>
+          <a class="btn btn-sm btn-quiet btn-mono" href="task-detail.html">Inspect</a>
+        </div>
+        <div class="panel-body tight scroll-y" id="tasks"></div>
+      </section>
+    </aside>
+
+    <!-- centre: transcript + composer -->
+    <section class="convo" data-od-id="transcript-column">
+      <div class="convo-scroll" id="scroll">
+        <div class="transcript" id="transcript">
+
+          <div class="msg msg-system">
+            <span class="who">session</span>
+            <div class="body">
+              blackboard attached · <span class="hot">GET /events</span> from seq 41208 · gateway <span class="hot">POST /hook</span> armed ·
+              persona <span class="hot">netops</span> · effect ceiling <span class="warn-t">reversible</span> — irreversible tools will ask.
+            </div>
+          </div>
+
+          <div class="msg msg-weave">
+            <span class="who">weave</span>
+            <div class="body">
+              <p>Four peers up, one degraded — <span class="mono">peer-04</span> fell back to the local model tier after two rate-limit retries. Snapshot for network 212984 is 41 minutes old.</p>
+              <p>Say the word, or hold <span class="kbd">Space</span> and talk.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- composer + orb -->
+      <div class="composer" data-od-id="composer">
+        <div class="composer-inner">
+          <div class="orb-wrap">
+            <button class="orb" id="orb" data-state="idle" aria-label="Push to talk">
+              <span class="ring" aria-hidden="true"></span>
+              <span class="ring r2" aria-hidden="true"></span>
+              <span class="ring r3" aria-hidden="true"></span>
+              <span class="core" aria-hidden="true"></span>
+            </button>
+            <div class="orb-caption" id="orb-caption">Hold Space · push to talk</div>
+          </div>
+
+          <div>
+            <div class="input-shell" id="shell">
+              <textarea class="textarea" id="input" rows="1" placeholder="Ask weave — or declare work for the pool…"></textarea>
+              <div class="composer-bar">
+                <div class="wave" id="wave" aria-hidden="true"></div>
+                <span class="meta" id="hint">read + reversible tools run unattended</span>
+                <span class="spacer"></span>
+                <span class="meta"><span class="kbd">↵</span> send</span>
+                <button class="btn btn-primary btn-sm" id="send">Send</button>
+              </div>
+            </div>
+            <div class="suggest" style="margin-top:var(--space-3)" id="suggest">
+              <button data-q="Trace the path from the branch VPN concentrator to the payments VIP.">path trace → payments</button>
+              <button data-q="How many critical CVEs are open on the edge routers?">cve posture</button>
+              <button data-q="Run an NQE check for interfaces with no description.">nqe check</button>
+              <button data-q="Push the fix to the two affected edge routers.">remediate (gated)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- right rail: blackboard stream + session -->
+    <aside class="rail rail-right" data-od-id="rail-blackboard">
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head">
+          <span class="title">Blackboard</span>
+          <span class="spacer"></span>
+          <span class="count" id="seq-badge">seq 41208</span>
+        </div>
+        <div class="panel-body flush scroll-y" id="feed-wrap">
+          <div class="feed" id="feed"></div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:none">
+        <div class="panel-head"><span class="title">Voice channel</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-3)">
+          <div class="row-between">
+            <span class="label">Recognition</span>
+            <span class="pill" id="cap-rec">checking</span>
+          </div>
+          <div class="row-between">
+            <span class="label">Synthesis</span>
+            <span class="pill" id="cap-syn">checking</span>
+          </div>
+          <div class="row-between">
+            <span class="label">Barge-in</span>
+            <span class="pill pill-ok">half-duplex</span>
+          </div>
+          <hr class="rule" />
+          <div class="metrics">
+            <div class="metric"><div class="v num" id="m-turns">2</div><div class="k">turns</div></div>
+            <div class="metric"><div class="v num" id="m-tok">18.4k</div><div class="k">tokens</div></div>
+            <div class="metric"><div class="v num" id="m-cost">$0.21</div><div class="k">session</div></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- ─── effect gate ────────────────────────────────────────────────── -->
+<div class="scrim" id="gate" hidden role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="modal brackets">
+    <header>
+      <span class="pill pill-warn"><span class="dot"></span> irreversible effect</span>
+      <h3 id="gate-title" style="margin-top:var(--space-3)">Grant required — <span class="mono">forward_ssh_provision</span></h3>
+      <p class="meta" style="margin-top:6px">peer-01 holds the lease and is blocked pending your decision.</p>
+    </header>
+    <div class="content">
+      <div class="gate-line"><span class="k">Tool</span><span class="v mono">forward_ssh_provision</span></div>
+      <div class="gate-line"><span class="k">Effect</span><span class="v mono warn-t">irreversible · outward</span></div>
+      <div class="gate-line"><span class="k">Targets</span><span class="v mono">edge-rtr-01, edge-rtr-04</span></div>
+      <div class="gate-line"><span class="k">Changeset</span><span class="v mono">cs-8841 · what-if predicted clean</span></div>
+      <div style="margin-top:var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:var(--space-2) 0">
+        <div class="diffline ctx">interface GigabitEthernet0/0/2</div>
+        <div class="diffline del">- no ip access-group EDGE_IN in</div>
+        <div class="diffline add">+ ip access-group EDGE_IN in</div>
+        <div class="diffline ctx">!</div>
+      </div>
+      <p class="meta" style="margin-top:var(--space-4)">Approving grants this tool for <span class="mono">this task only</span>. The grant does not persist to the next lease.</p>
+    </div>
+    <footer>
+      <button class="btn" id="gate-deny">Deny</button>
+      <button class="btn btn-primary" id="gate-approve">Approve · apply to 2 devices</button>
+    </footer>
+  </div>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  const H = window.WeaveHUD;
+  const { $, el } = H;
+
+  H.clock($('#clock'));
+
+  /* ── voice ──────────────────────────────────────────────────────── */
+  const wave = H.waveform($('#wave'), 26);
+  wave.idle();
+
+  const voice = new H.VoiceEngine({
+    onLevel: (l) => wave.set(l),
+    onInterim: (t) => showInterim(t),
+    onFinal: (t) => { showInterim(''); submit(t, { spoken: true }); },
+    onState: (s) => { $('#shell').dataset.listening = s === 'listening'; if (s !== 'listening') wave.idle(); },
+    onNoMic: () => H.toast('no microphone — type instead, waveform is a demo signal')
+  });
+  H.bindOrb($('#orb'), voice, $('#orb-caption'));
+
+  $('#cap-rec').textContent = voice.caps.recognition ? 'web speech api' : 'unavailable';
+  $('#cap-rec').className = 'pill ' + (voice.caps.recognition ? 'pill-ok' : 'pill-warn');
+  $('#cap-syn').textContent = voice.caps.synthesis ? 'available' : 'unavailable';
+  $('#cap-syn').className = 'pill ' + (voice.caps.synthesis ? 'pill-ok' : 'pill-warn');
+
+  $('#mic-toggle').addEventListener('click', (e) => {
+    const on = e.currentTarget.getAttribute('aria-pressed') === 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(!on));
+    voice.setMicMuted(!on);
+    H.toast(!on ? 'microphone muted' : 'microphone live');
+  });
+  $('#spk-toggle').addEventListener('click', (e) => {
+    const on = e.currentTarget.getAttribute('aria-pressed') === 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(!on));
+    voice.setSpeakerMuted(!on);
+    H.toast(!on ? 'replies silenced — display only' : 'spoken replies on');
+  });
+
+  let interimNode = null;
+  function showInterim(text) {
+    if (!text) { if (interimNode) { interimNode.remove(); interimNode = null; } return; }
+    if (!interimNode) {
+      interimNode = el('span', { class: 'interim' });
+      $('#hint').replaceChildren(interimNode);
+    }
+    interimNode.textContent = '“' + text + '”';
+  }
+
+  /* ── blackboard feed ────────────────────────────────────────────── */
+  let seq = 41208;
+  const feed = $('#feed');
+  function emit(kind, subject, tone) {
+    seq += 1;
+    const row = el('div', { class: 'evt', 'data-kind': tone || 'progress' }, []);
+    row.appendChild(el('span', { class: 'seq', text: String(seq).slice(-5) }));
+    const right = el('div');
+    right.appendChild(el('span', { class: 'kind', text: kind }));
+    right.appendChild(el('span', { class: 'subj', text: subject }));
+    row.appendChild(right);
+    feed.insertBefore(row, feed.firstChild);
+    while (feed.children.length > 60) feed.lastChild.remove();
+    $('#seq-badge').textContent = 'seq ' + seq;
+  }
+
+  [
+    ['task.completed', 'nqe.interface-desc-audit · 312 rows', 'completed'],
+    ['board.panel', 'canvas:default · metrics', 'progress'],
+    ['lease.renewed', 'peer-01 · ttl 60s', 'progress'],
+    ['task.claimed', 'peer-01 · snapshot.refresh', 'claimed'],
+    ['task.declared', 'snapshot.refresh · network 212984', 'declared']
+  ].forEach(([k, s, t]) => emit(k, s, t));
+
+  /* ── task log ───────────────────────────────────────────────────── */
+  const tasks = [
+    { id: 'tsk-9f21', goal: 'Refresh snapshot · network 212984', state: 'running', peer: 'peer-01', lease: 62 },
+    { id: 'tsk-9f18', goal: 'CVE audit · edge + core routers', state: 'claimed', peer: 'peer-02', lease: 88 },
+    { id: 'tsk-9f0c', goal: 'Interface description audit (NQE)', state: 'completed', peer: 'peer-04', lease: 0 },
+    { id: 'tsk-9efa', goal: 'STIG sweep · datacenter switches', state: 'failed', peer: 'peer-02', lease: 0 }
+  ];
+  const taskHost = $('#tasks');
+  function renderTasks() {
+    taskHost.replaceChildren();
+    tasks.forEach((t) => {
+      const a = el('a', { class: 'task', href: 'task-detail.html', 'data-state': t.state, 'data-od-id': 'task-' + t.id });
+      a.appendChild(el('span', { class: 't', text: t.goal }));
+      const r = el('div', { class: 'r' });
+      r.appendChild(el('span', { class: 'meta mono', text: t.id }));
+      const badge = el('span', {
+        class: 'pill ' + ({ running: 'pill-accent', claimed: 'pill-claimed', completed: 'pill-ok', failed: 'pill-bad', gated: 'pill-warn', declared: '' }[t.state] || ''),
+        text: t.state
+      });
+      r.appendChild(badge);
+      r.appendChild(el('span', { class: 'meta mono', text: t.peer }));
+      a.appendChild(r);
+      if (t.lease > 0) {
+        const bar = el('div', { class: 'lease' });
+        bar.appendChild(el('i', { style: 'width:' + t.lease + '%' }));
+        a.appendChild(bar);
+      }
+      taskHost.appendChild(a);
+    });
+  }
+  renderTasks();
+
+  setInterval(() => {
+    let dirty = false;
+    tasks.forEach((t) => {
+      if (t.lease > 0) { t.lease = Math.max(4, t.lease - 3); dirty = true; }
+    });
+    if (dirty) renderTasks();
+  }, 3000);
+
+  /* ambient substrate chatter — the log never stops moving */
+  const chatter = [
+    ['lease.renewed', 'peer-01 · ttl 60s', 'progress'],
+    ['task.progress', 'snapshot.refresh · collecting 148/212 devices', 'progress'],
+    ['tool.called', 'peer-02 · forward_cve_audit (read)', 'tool'],
+    ['learning.question.asked', 'peer-04 · ambiguous device role', 'progress'],
+    ['canvas.op', 'create_canvas · path-trace', 'progress']
+  ];
+  let ci = 0;
+  setInterval(() => { const c = chatter[ci++ % chatter.length]; emit(c[0], c[1], c[2]); }, 5200);
+
+  /* ── transcript ─────────────────────────────────────────────────── */
+  const transcript = $('#transcript');
+  const scroller = $('#scroll');
+  const nudge = () => { scroller.scrollTop = scroller.scrollHeight; };
+
+  function addMsg(role, who) {
+    const m = el('div', { class: 'msg msg-' + role });
+    m.appendChild(el('span', { class: 'who', text: who }));
+    const body = el('div', { class: 'body' });
+    m.appendChild(body);
+    transcript.appendChild(m);
+    nudge();
+    return body;
+  }
+
+  function toolChip(fn, effect, note) {
+    const c = el('span', { class: 'toolcall', 'data-effect': effect });
+    c.appendChild(el('span', { class: 'fn', text: fn }));
+    c.appendChild(el('span', { class: 'eff', text: '· ' + effect + (note ? ' · ' + note : '') }));
+    return c;
+  }
+
+  function boardPanel(body, title, kind, build) {
+    const p = el('div', { class: 'board-panel', 'data-kind': kind || 'default' });
+    const head = el('header');
+    head.appendChild(el('span', { class: 't', text: title }));
+    head.appendChild(el('span', { class: 'label', text: 'canvas · default' }));
+    p.appendChild(head);
+    const content = el('div', { class: 'content' });
+    build(content);
+    p.appendChild(content);
+    body.appendChild(p);
+    nudge();
+    return p;
+  }
+
+  /* ── response plans — grounded in weave's real tool surface ─────── */
+  const PLANS = [
+    {
+      match: /path|trace|reach|vpn|payments/i,
+      speak: 'Path is up. Nine hops, one ACL you should look at.',
+      reply: 'Traced it on the 41-minute-old snapshot. The flow reaches the payments VIP — nine hops, no drops — but hop 6 permits it via a broad ACE that also opens the whole /16. Panel is on the board.',
+      tools: [['path_search', 'read'], ['forward_snapshots', 'read', 'freshness 41m']],
+      events: [['task.declared', 'path.analysis · branch-vpn → payments-vip', 'declared'], ['task.claimed', 'peer-01 · path.analysis', 'claimed'], ['board.panel', 'canvas:default · path table', 'progress'], ['task.completed', 'path.analysis · 9 hops permitted', 'completed']],
+      panel: (c) => {
+        c.appendChild(miniTopo());
+        const t = el('table', { class: 'ds-table', style: 'margin-top:var(--space-4)' });
+        t.innerHTML =
+          '<thead><tr><th>Hop</th><th>Device</th><th>Behaviour</th><th class="num-col">Latency</th></tr></thead>' +
+          '<tbody>' +
+          '<tr><td class="num">1</td><td class="mono">branch-vpn-01</td><td>permitted</td><td class="num-col">0.4 ms</td></tr>' +
+          '<tr><td class="num">4</td><td class="mono">core-sw-02</td><td>permitted</td><td class="num-col">1.9 ms</td></tr>' +
+          '<tr><td class="num">6</td><td class="mono">edge-rtr-01</td><td class="warn-t">permitted · broad ACE</td><td class="num-col">2.6 ms</td></tr>' +
+          '<tr><td class="num">9</td><td class="mono">payments-vip</td><td class="ok">delivered</td><td class="num-col">3.1 ms</td></tr>' +
+          '</tbody>';
+        c.appendChild(t);
+      }
+    },
+    {
+      match: /cve|vulnerab|patch|posture/i,
+      speak: 'Eleven critical, all on the edge tier.',
+      reply: 'Eleven criticals across the edge tier, none in the datacenter. Nine of them collapse into a single IOS-XE upgrade — the other two need a config change, not a version bump.',
+      tools: [['forward_cve_audit', 'read'], ['security_matrix', 'read']],
+      events: [['task.declared', 'cve.audit · all devices', 'declared'], ['tool.called', 'peer-02 · forward_cve_audit', 'tool'], ['task.completed', 'cve.audit · 11 critical / 34 high', 'completed']],
+      kind: 'warn',
+      panel: (c) => {
+        const m = el('div', { class: 'metrics' });
+        [['11', 'critical'], ['34', 'high'], ['9', 'one upgrade fixes'], ['2', 'config-only']].forEach(([v, k]) => {
+          const d = el('div', { class: 'metric' });
+          d.appendChild(el('div', { class: 'v num', text: v }));
+          d.appendChild(el('div', { class: 'k', text: k }));
+          m.appendChild(d);
+        });
+        c.appendChild(m);
+        const meter = el('div', { class: 'meter is-warn', style: 'margin-top:var(--space-4)' });
+        meter.appendChild(el('i', { style: 'width:24%' }));
+        c.appendChild(meter);
+        c.appendChild(el('p', { class: 'meta', style: 'margin-top:6px', text: '24% of the edge fleet is on the affected train' }));
+      }
+    },
+    {
+      match: /nqe|description|query|audit/i,
+      speak: 'Three hundred twelve interfaces, no description.',
+      reply: '312 interfaces carry no description, concentrated on two access stacks that were racked last quarter. I can open a changeset that names them from the patch-panel export.',
+      tools: [['nqe_run', 'read', '0.8s']],
+      events: [['tool.called', 'peer-04 · nqe_run', 'tool'], ['board.panel', 'canvas:default · table', 'progress'], ['task.completed', 'nqe.run · 312 rows', 'completed']],
+      panel: (c) => {
+        const t = el('table', { class: 'ds-table' });
+        t.innerHTML =
+          '<thead><tr><th>Device</th><th>Role</th><th class="num-col">Undescribed</th></tr></thead>' +
+          '<tbody>' +
+          '<tr><td class="mono">acc-sw-14</td><td>access</td><td class="num-col">96</td></tr>' +
+          '<tr><td class="mono">acc-sw-15</td><td>access</td><td class="num-col">92</td></tr>' +
+          '<tr><td class="mono">dist-sw-03</td><td>distribution</td><td class="num-col">61</td></tr>' +
+          '<tr><td class="mono">— 9 more</td><td class="dim">mixed</td><td class="num-col">63</td></tr>' +
+          '</tbody>';
+        c.appendChild(t);
+      }
+    },
+    {
+      match: /push|apply|remediate|provision|fix it|deploy/i,
+      gate: true,
+      speak: 'That one is irreversible. I need a grant.',
+      reply: 'That crosses into irreversible territory — two devices, one ACL binding each. The what-if on changeset cs-8841 predicts no new reachability loss. I have the lease open and I am holding.',
+      tools: [['forward_predict', 'read', 'clean'], ['forward_ssh_provision', 'irreversible', 'blocked']],
+      events: [['task.declared', 'remediate.acl · edge-rtr-01, edge-rtr-04', 'declared'], ['task.claimed', 'peer-01 · remediate.acl', 'claimed'], ['grant.requested', 'forward_ssh_provision · awaiting human', 'tool']]
+    },
+    {
+      match: /status|swarm|pool|peers|health|how are/i,
+      speak: 'Four peers. One degraded on the local tier.',
+      reply: 'Three peers healthy, one degraded — peer-04 dropped to the local Ollama tier after two rate-limit retries and is running about four times slower. The pool is still claiming everything; nothing is starving.',
+      tools: [['peer_presence', 'read']],
+      events: [['tool.called', 'coordinator · peer_presence', 'tool']],
+      panel: (c) => {
+        const m = el('div', { class: 'metrics' });
+        [['4', 'peers'], ['1', 'degraded'], ['2', 'in flight'], ['0', 'starved']].forEach(([v, k]) => {
+          const d = el('div', { class: 'metric' });
+          d.appendChild(el('div', { class: 'v num', text: v }));
+          d.appendChild(el('div', { class: 'k', text: k }));
+          m.appendChild(d);
+        });
+        c.appendChild(m);
+      }
+    }
+  ];
+
+  const FALLBACK = {
+    speak: 'Declared it. Two peers picked it up.',
+    reply: 'Not something I can answer from the snapshot, so I declared it to the pool instead. Two peers claimed the fan-out; results land on the board and in the task log as they settle.',
+    tools: [['spawn_task', 'reversible', 'persona netops'], ['fanout', 'reversible', '2 peers']],
+    events: [['task.declared', 'research · ad-hoc goal', 'declared'], ['task.claimed', 'peer-02 · research', 'claimed'], ['task.claimed', 'peer-03 · research', 'claimed']]
+  };
+
+  function miniTopo() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'topo mini-topo');
+    svg.setAttribute('viewBox', '0 0 420 168');
+    const pts = [[34, 84], [104, 50], [104, 118], [186, 84], [268, 52], [268, 116], [350, 84]];
+    const edges = [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [3, 5], [4, 6], [5, 6]];
+    const hot = new Set(['0-1', '1-3', '3-4', '4-6']);
+    edges.forEach(([a, b]) => {
+      const l = document.createElementNS(ns, 'line');
+      l.setAttribute('x1', pts[a][0]); l.setAttribute('y1', pts[a][1]);
+      l.setAttribute('x2', pts[b][0]); l.setAttribute('y2', pts[b][1]);
+      l.setAttribute('class', 'edge' + (hot.has(a + '-' + b) ? ' hot' : ''));
+      svg.appendChild(l);
+    });
+    const names = ['branch-vpn', 'wan-01', 'wan-02', 'core-sw-02', 'edge-rtr-01', 'edge-rtr-04', 'payments'];
+    const cls = ['n-peer', 'n-up', 'n-up', 'n-core', 'n-warn', 'n-up', 'n-peer'];
+    pts.forEach((p, i) => {
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'node');
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]); c.setAttribute('r', 6);
+      c.setAttribute('class', cls[i]);
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', p[0]); t.setAttribute('y', p[1] - 12);
+      t.textContent = names[i];
+      g.appendChild(c); g.appendChild(t);
+      svg.appendChild(g);
+    });
+    return svg;
+  }
+
+  /* ── turn execution ─────────────────────────────────────────────── */
+  let turns = 2, tokens = 18400, cost = 0.21;
+  let busy = false;
+
+  async function submit(text, opts) {
+    const q = (text || '').trim();
+    if (!q || busy) return;
+    busy = true;
+    $('#input').value = '';
+    $('#hint').textContent = 'read + reversible tools run unattended';
+
+    const u = addMsg('user', (opts && opts.spoken) ? 'you · voice' : 'you');
+    u.appendChild(el('p', { text: q }));
+
+    const plan = PLANS.find((p) => p.match.test(q)) || FALLBACK;
+
+    voice.thinking();
+    const body = addMsg('weave', 'weave');
+
+    // tool calls appear first — the console shows its work
+    const via = el('div', { class: 'via' });
+    body.appendChild(via);
+    for (const [fn, effect, note] of plan.tools) {
+      await wait(280);
+      via.appendChild(toolChip(fn, effect, note));
+      nudge();
+    }
+
+    (plan.events || []).forEach((e, i) => setTimeout(() => emit(e[0], e[1], e[2]), 240 * (i + 1)));
+
+    await wait(320);
+    const para = el('p');
+    body.insertBefore(para, via);
+    await H.stream(para, plan.reply, { onTick: nudge });
+
+    if (plan.panel) {
+      await wait(180);
+      boardPanel(body, plan.kind === 'warn' ? 'Security posture' : 'Board panel', plan.kind, plan.panel);
+    }
+
+    voice.speak(plan.speak);
+    if (!voice.caps.synthesis || voice.speakerMuted) voice.settle();
+
+    turns += 1; tokens += 1200 + Math.floor(Math.random() * 2600); cost += 0.04 + Math.random() * 0.06;
+    $('#m-turns').textContent = turns;
+    $('#m-tok').textContent = (tokens / 1000).toFixed(1) + 'k';
+    $('#m-cost').textContent = '$' + cost.toFixed(2);
+
+    if (plan.gate) {
+      await wait(420);
+      openGate();
+    }
+    busy = false;
+  }
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* ── effect gate ────────────────────────────────────────────────── */
+  const gate = $('#gate');
+  let gateReturn = null;
+  function openGate() {
+    gateReturn = document.activeElement;
+    gate.hidden = false;
+    $('#gate-approve').focus();
+    tasks.unshift({ id: 'tsk-9f2b', goal: 'Remediate ACL binding · 2 edge routers', state: 'gated', peer: 'peer-01', lease: 96 });
+    renderTasks();
+  }
+  function closeGate() {
+    gate.hidden = true;
+    if (gateReturn) gateReturn.focus();
+  }
+  $('#gate-deny').addEventListener('click', () => {
+    closeGate();
+    tasks[0].state = 'failed'; tasks[0].lease = 0; renderTasks();
+    emit('grant.denied', 'forward_ssh_provision · human denied', 'failed');
+    const b = addMsg('weave', 'weave');
+    b.appendChild(el('p', { text: 'Denied — lease released, nothing touched the devices. Changeset cs-8841 stays staged if you want to look at it later.' }));
+    voice.speak('Denied. Nothing was applied.');
+  });
+  $('#gate-approve').addEventListener('click', async () => {
+    closeGate();
+    tasks[0].state = 'running'; renderTasks();
+    emit('grant.approved', 'forward_ssh_provision · scoped to tsk-9f2b', 'tool');
+    const b = addMsg('weave', 'weave');
+    const p = el('p'); b.appendChild(p);
+    await H.stream(p, 'Applied to both routers. Post-change verification passed on the second snapshot — the broad ACE is gone and the payments path still reaches. Grant expired with the lease.', { onTick: nudge });
+    boardPanel(b, 'Remediation applied', 'ok', (c) => {
+      const m = el('div', { class: 'metrics' });
+      [['2', 'devices'], ['0', 'errors'], ['1', 'ACE removed'], ['pass', 'post-check']].forEach(([v, k]) => {
+        const d = el('div', { class: 'metric' });
+        d.appendChild(el('div', { class: 'v num', text: v }));
+        d.appendChild(el('div', { class: 'k', text: k }));
+        m.appendChild(d);
+      });
+      c.appendChild(m);
+    });
+    emit('task.completed', 'remediate.acl · 2 devices applied', 'completed');
+    tasks[0].state = 'completed'; tasks[0].lease = 0; renderTasks();
+    voice.speak('Applied. Post-change check passed.');
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !gate.hidden) $('#gate-deny').click(); });
+
+  /* ── composer wiring ────────────────────────────────────────────── */
+  const input = $('#input');
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 132) + 'px';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(input.value); input.style.height = 'auto'; }
+  });
+  $('#send').addEventListener('click', () => { submit(input.value); input.style.height = 'auto'; });
+  $('#suggest').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) submit(b.dataset.q);
+  });
+
+  /* a question asked from another screen (or spoken into the topbar orb)
+     arrives here and runs as this session's next turn */
+  const pending = H.store.get('weave.pending');
+  if (pending) {
+    H.store.del('weave.pending');
+    setTimeout(() => submit(pending), 420);
+  }
+})();
+</script>
+</body>
+</html>

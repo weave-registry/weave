@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Swarm · weave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/hud.css" />
+<style>
+  .stage { position: relative; min-height: 0; display: flex; flex-direction: column; }
+  .stage-head { flex: none; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border); }
+  .stage-canvas { flex: 1; position: relative; min-height: 0; }
+  .stage-canvas svg { position: absolute; inset: 0; }
+  .reticle { position: absolute; inset: 0; pointer-events: none; }
+  .reticle span { position: absolute; width: 14px; height: 14px; border-color: var(--accent-line); border-style: solid; border-width: 0; }
+  .reticle .tl { top: 14px; left: 14px; border-top-width: 1px; border-left-width: 1px; }
+  .reticle .tr { top: 14px; right: 14px; border-top-width: 1px; border-right-width: 1px; }
+  .reticle .bl { bottom: 14px; left: 14px; border-bottom-width: 1px; border-left-width: 1px; }
+  .reticle .br { bottom: 14px; right: 14px; border-bottom-width: 1px; border-right-width: 1px; }
+  .legend { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .plugin { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px var(--space-3); padding: 10px var(--space-3); border-radius: var(--radius-sm); align-items: center; }
+  .plugin + .plugin { border-top: 1px solid var(--border-soft); }
+  .plugin:hover { background: var(--fg-soft); }
+  .plugin .nm { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg); }
+  .plugin .ds { font-size: 11px; color: var(--muted); grid-column: 1 / -1; line-height: 1.45; }
+  .plugin .con { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.04em; }
+  /* a disabled plugin dims its whole row — its contributions leave the interface */
+  .plugin[data-enabled="false"] .nm,
+  .plugin[data-enabled="false"] .ds,
+  .plugin[data-enabled="false"] .con { color: color-mix(in oklab, var(--muted) 55%, transparent); }
+  .tog {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    min-height: 24px; padding: 2px 9px; border-radius: var(--radius-pill);
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+  }
+  .tog[aria-pressed="true"] { color: var(--success); border-color: color-mix(in oklab, var(--success) 45%, transparent); }
+  .tog:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .tog:disabled { cursor: default; border-style: dashed; color: color-mix(in oklab, var(--muted) 60%, transparent); }
+  .trustline { display: flex; align-items: center; gap: var(--space-2); grid-column: 1 / -1; flex-wrap: wrap; }
+  .packtag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+    color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius-pill);
+    padding: 1px 7px; white-space: nowrap;
+  }
+  .inspector dl { display: grid; grid-template-columns: 88px 1fr; gap: 7px var(--space-3); margin: 0; }
+  .inspector dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .inspector dd { margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg); }
+  .provenance {
+    flex: none; display: flex; align-items: center; gap: var(--space-3);
+    padding: 9px var(--space-5); border-bottom: 1px solid var(--border);
+    background: color-mix(in oklab, var(--surface-warm) 40%, transparent);
+  }
+  .provenance[hidden] { display: none; }
+  .topo .path-edge { stroke: color-mix(in oklab, var(--accent) 60%, var(--border)); stroke-width: 1.4; }
+  @media (max-width: 920px) {
+    .stage-canvas { min-height: 420px; }
+    .stage { min-height: 560px; }
+  }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+
+<div class="app page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">swarm</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html" aria-current="page">Swarm</a>
+      <a href="task-detail.html">Tasks</a>
+      <a href="plugins.html">Packs</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <span class="pill pill-ok"><span class="dot dot-live"></span> substrate live</span>
+      <span class="meta num" id="clock">--:--:--</span>
+      <div class="orb-wrap">
+        <button class="orb orb-sm" id="orb" data-state="idle" aria-label="Push to talk">
+          <span class="ring" aria-hidden="true"></span><span class="core" aria-hidden="true"></span>
+        </button>
+      </div>
+      <span class="meta" id="orb-caption" style="min-width:150px">Hold Space · push to talk</span>
+    </div>
+  </header>
+
+  <div class="workspace" style="grid-template-columns: 300px 1fr 340px;">
+
+    <!-- left rail: peer pool detail -->
+    <aside class="rail" data-od-id="rail-pool">
+      <section class="panel" style="flex:none">
+        <div class="panel-head"><span class="title">Pool</span><span class="spacer"></span><span class="count">4 workers</span></div>
+        <div class="panel-body" style="display:grid;gap:var(--space-4)">
+          <div class="metrics">
+            <div class="metric"><div class="v num">3</div><div class="k">healthy</div></div>
+            <div class="metric"><div class="v num warn-t">1</div><div class="k">degraded</div></div>
+            <div class="metric"><div class="v num">2</div><div class="k">in flight</div></div>
+          </div>
+          <div>
+            <div class="row-between" style="margin-bottom:6px"><span class="label">Claim throughput</span><span class="meta num">14/min</span></div>
+            <div class="meter is-ok"><i style="width:72%"></i></div>
+          </div>
+          <div>
+            <div class="row-between" style="margin-bottom:6px"><span class="label">Lease contention</span><span class="meta num">0.3%</span></div>
+            <div class="meter"><i style="width:8%"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head"><span class="title">Model routing</span></div>
+        <div class="panel-body tight scroll-y">
+          <div class="peer" data-health="busy">
+            <span class="sig"></span>
+            <div><span class="id">peer-01</span><span class="rt">netops · claude-opus-5</span></div>
+            <span class="pill pill-accent">lease</span>
+          </div>
+          <div class="peer" data-health="up">
+            <span class="sig"></span>
+            <div><span class="id">peer-02</span><span class="rt">netops · claude-sonnet-5</span></div>
+            <span class="pill">idle</span>
+          </div>
+          <div class="peer" data-health="up">
+            <span class="sig"></span>
+            <div><span class="id">peer-03</span><span class="rt">developer · claude-opus-5</span></div>
+            <span class="pill">idle</span>
+          </div>
+          <div class="peer" data-health="degraded">
+            <span class="sig"></span>
+            <div><span class="id">peer-04</span><span class="rt">netops · ollama qwen2.5:14b</span></div>
+            <span class="pill pill-warn">fallback</span>
+          </div>
+          <div style="padding:var(--space-3)">
+            <p class="meta" style="line-height:1.5">peer-04 dropped to the local tier after two rate-limit retries. Persona and granted tools are unchanged; only the model changed, so its <span class="hot">maxEffect</span> ceiling still holds.</p>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- centre: the hologram -->
+    <section class="stage" data-od-id="topology">
+      <div class="stage-head">
+        <span class="eyebrow" style="margin:0">Peers &amp; leases</span>
+        <span class="spacer"></span>
+        <div class="row" style="gap:var(--space-2)">
+          <button class="btn btn-sm btn-mono" id="mode-swarm" aria-pressed="true">Swarm</button>
+          <button class="btn btn-sm btn-mono" id="mode-twin" aria-pressed="false">
+            Digital twin <span class="packtag" style="margin-left:6px">pack</span>
+          </button>
+          <button class="btn btn-sm btn-mono" id="pulse">Trace path</button>
+        </div>
+      </div>
+      <div class="provenance" id="prov" hidden>
+        <span class="packtag">pack</span>
+        <span class="meta">This view is contributed by <span class="mono">forward</span> ·
+          <span class="mono">gaberger/weave-plugins</span> · snapshot <span class="num hot">41m</span> old.
+          Core knows about peers and leases, not devices.</span>
+      </div>
+      <div class="stage-canvas" id="stage">
+        <svg class="topo" id="topo" aria-label="Live network topology"></svg>
+        <div class="reticle" aria-hidden="true"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+      </div>
+      <div class="stage-head" style="border-top:1px solid var(--border);border-bottom:0">
+        <div class="legend">
+          <span><i class="dot" style="color:var(--claimed)"></i> coordinator</span>
+          <span><i class="dot" style="color:var(--accent)"></i> peer</span>
+          <span><i class="dot" style="color:var(--success)"></i> up</span>
+          <span><i class="dot" style="color:var(--warn)"></i> degraded</span>
+          <span><i class="dot" style="color:var(--danger)"></i> down</span>
+        </div>
+        <span class="spacer"></span>
+        <span class="meta" id="graph-meta">—</span>
+      </div>
+    </section>
+
+    <!-- right rail: inspector + plugin trust -->
+    <aside class="rail rail-right" data-od-id="rail-registry">
+      <section class="panel inspector" style="flex:none">
+        <div class="panel-head"><span class="title">Inspector</span><span class="spacer"></span><span class="count" id="insp-kind">node</span></div>
+        <div class="panel-body" id="inspector">
+          <p class="meta">Select a node on the hologram.</p>
+        </div>
+      </section>
+
+      <section class="panel" style="flex:1 1 auto">
+        <div class="panel-head">
+          <span class="title">Plugins</span><span class="spacer"></span><span class="count" id="plug-count">12 system · 0 user</span>
+        </div>
+        <div class="panel-body tight scroll-y" id="plugins"></div>
+        <div style="flex:none;padding:var(--space-3) var(--space-4);border-top:1px solid var(--border-soft)">
+          <p class="meta" style="line-height:1.5">Toggles POST <span class="mono hot">{plugin:{name,enabled}}</span> to the gateway. Changes apply live — no restart.</p>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script src="../assets/hud.js"></script>
+<script>
+(function () {
+  const H = window.WeaveHUD;
+  const { $, el } = H;
+  H.clock($('#clock'));
+
+  /* ambient voice presence follows you across screens */
+  const voice = new H.VoiceEngine({
+    onFinal: (t) => {
+      H.toast('heard: ' + t.slice(0, 48));
+      H.store.set('weave.pending', t);
+      location.href = 'console.html';
+    },
+    onNoMic: () => H.toast('no microphone — open the console to type')
+  });
+  H.bindOrb($('#orb'), voice, $('#orb-caption'));
+
+  /* ── graphs ─────────────────────────────────────────────────────── */
+  const SWARM = {
+    key: 'swarm',
+    nodes: [
+      { id: 'substrate', label: 'substrate', kind: 'core', r: 15 },
+      { id: 'gateway', label: ':8787 gateway', kind: 'core', r: 9 },
+      { id: 'sse', label: ':8788 blackboard', kind: 'core', r: 9 },
+      { id: 'peer-01', label: 'peer-01', kind: 'peer', r: 11, status: 'busy' },
+      { id: 'peer-02', label: 'peer-02', kind: 'peer', r: 10 },
+      { id: 'peer-03', label: 'peer-03', kind: 'peer', r: 10 },
+      { id: 'peer-04', label: 'peer-04', kind: 'warn', r: 10 },
+      { id: 'tsk-9f21', label: 'snapshot.refresh', kind: 'up', r: 6 },
+      { id: 'tsk-9f18', label: 'cve.audit', kind: 'up', r: 6 },
+      { id: 'tsk-9f0c', label: 'nqe.run', kind: 'up', r: 6 },
+      { id: 'tsk-9efa', label: 'stig.sweep', kind: 'down', r: 6 }
+    ],
+    edges: [
+      ['substrate', 'gateway'], ['substrate', 'sse'],
+      ['substrate', 'peer-01'], ['substrate', 'peer-02'], ['substrate', 'peer-03'], ['substrate', 'peer-04'],
+      ['peer-01', 'tsk-9f21'], ['peer-02', 'tsk-9f18'], ['peer-04', 'tsk-9f0c'], ['peer-02', 'tsk-9efa']
+    ],
+    detail: {
+      'substrate': ['kind', 'shared event log', 'events', '41,213', 'compaction', '2h ago', 'subscribers', '3'],
+      'gateway': ['bind', '127.0.0.1:8787', 'method', 'POST /hook', 'role', 'the only write path'],
+      'sse': ['bind', '127.0.0.1:8788', 'stream', 'GET /events', 'replay', 'Last-Event-ID'],
+      'peer-01': ['persona', 'netops', 'model', 'claude-opus-5', 'lease', 'tsk-9f21 · 62s', 'maxEffect', 'reversible'],
+      'peer-02': ['persona', 'netops', 'model', 'claude-sonnet-5', 'lease', '—', 'maxEffect', 'reversible'],
+      'peer-03': ['persona', 'developer', 'model', 'claude-opus-5', 'dev-root', '../weave-dev', 'maxEffect', 'reversible'],
+      'peer-04': ['persona', 'netops', 'model', 'ollama qwen2.5:14b', 'health', 'degraded · rate-limit fallback', 'maxEffect', 'reversible'],
+      'tsk-9f21': ['state', 'running', 'peer', 'peer-01', 'lease ttl', '62s'],
+      'tsk-9f18': ['state', 'claimed', 'peer', 'peer-02', 'lease ttl', '88s'],
+      'tsk-9f0c': ['state', 'completed', 'peer', 'peer-04', 'rows', '312'],
+      'tsk-9efa': ['state', 'failed', 'peer', 'peer-02', 'reason', 'snapshot too old']
+    }
+  };
+
+  const TWIN = {
+    key: 'twin',
+    nodes: [
+      { id: 'branch-vpn', label: 'branch-vpn-01', kind: 'peer', r: 9 },
+      { id: 'wan-01', label: 'wan-rtr-01', kind: 'up', r: 8 },
+      { id: 'wan-02', label: 'wan-rtr-02', kind: 'up', r: 8 },
+      { id: 'core-01', label: 'core-sw-01', kind: 'core', r: 11 },
+      { id: 'core-02', label: 'core-sw-02', kind: 'core', r: 11 },
+      { id: 'edge-01', label: 'edge-rtr-01', kind: 'warn', r: 9 },
+      { id: 'edge-04', label: 'edge-rtr-04', kind: 'warn', r: 9 },
+      { id: 'dist-03', label: 'dist-sw-03', kind: 'up', r: 8 },
+      { id: 'acc-14', label: 'acc-sw-14', kind: 'up', r: 7 },
+      { id: 'acc-15', label: 'acc-sw-15', kind: 'down', r: 7 },
+      { id: 'fw-01', label: 'dc-fw-01', kind: 'up', r: 9 },
+      { id: 'payments', label: 'payments-vip', kind: 'peer', r: 10 }
+    ],
+    edges: [
+      ['branch-vpn', 'wan-01'], ['branch-vpn', 'wan-02'], ['wan-01', 'core-01'], ['wan-02', 'core-02'],
+      ['core-01', 'core-02'], ['core-01', 'edge-01'], ['core-02', 'edge-04'], ['core-01', 'dist-03'],
+      ['dist-03', 'acc-14'], ['dist-03', 'acc-15'], ['edge-01', 'fw-01'], ['edge-04', 'fw-01'], ['fw-01', 'payments']
+    ],
+    down: ['dist-03-acc-15'],
+    path: ['branch-vpn-wan-01', 'wan-01-core-01', 'core-01-edge-01', 'edge-01-fw-01', 'fw-01-payments'],
+    detail: {
+      'branch-vpn': ['role', 'vpn concentrator', 'os', 'IOS-XE 17.9', 'status', 'up'],
+      'edge-01': ['role', 'edge router', 'os', 'IOS-XE 17.3', 'cve', '6 critical', 'finding', 'broad ACE on Gi0/0/2'],
+      'edge-04': ['role', 'edge router', 'os', 'IOS-XE 17.3', 'cve', '5 critical', 'finding', 'broad ACE on Gi0/0/2'],
+      'acc-15': ['role', 'access switch', 'status', 'down', 'last seen', '3h 12m ago', 'impact', '92 undescribed ports'],
+      'payments': ['role', 'service vip', 'reachable', 'yes · 9 hops', 'exposure', 'permitted from /16']
+    }
+  };
+
+  /* ── layout ─────────────────────────────────────────────────────────
+     These graphs are small, fixed and known, so their shape is authored
+     rather than discovered. A force sim re-derives a layout we already
+     know every frame, and drifts leaf nodes (gateway, blackboard have one
+     edge each) out to the clamp boundary. Fractions of the canvas. */
+  const LAYOUT = {
+    swarm: {
+      substrate: [0.50, 0.50], gateway: [0.50, 0.15], sse: [0.50, 0.85],
+      'peer-01': [0.26, 0.31], 'peer-02': [0.26, 0.69],
+      'peer-03': [0.74, 0.31], 'peer-04': [0.74, 0.69],
+      'tsk-9f21': [0.09, 0.17], 'tsk-9efa': [0.10, 0.50],
+      'tsk-9f18': [0.09, 0.83], 'tsk-9f0c': [0.91, 0.83]
+    },
+    twin: {
+      'branch-vpn': [0.06, 0.50],
+      'wan-01': [0.21, 0.30], 'wan-02': [0.21, 0.70],
+      'core-01': [0.38, 0.26], 'core-02': [0.38, 0.74],
+      'edge-01': [0.56, 0.14], 'edge-04': [0.56, 0.46], 'dist-03': [0.56, 0.82],
+      'fw-01': [0.75, 0.30], 'acc-14': [0.75, 0.68], 'acc-15': [0.75, 0.93],
+      payments: [0.93, 0.30]
+    }
+  };
+
+  /* ── render ─────────────────────────────────────────────────────── */
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = $('#topo');
+  const stage = $('#stage');
+  let G = null, sim = null, selected = null, pulseT = 0;
+
+  function load(graph, name) {
+    cancelAnimationFrame(sim);
+    const rect = stage.getBoundingClientRect();
+    const W = rect.width || 900, Hh = rect.height || 560;
+    svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+    svg.replaceChildren();
+
+    const pad = 54;
+    const lay = LAYOUT[graph.key] || {};
+    const N = graph.nodes.map((n) => {
+      const f = lay[n.id] || [0.5, 0.5];
+      return Object.assign({}, n, {
+        x: pad + f[0] * (W - pad * 2),
+        y: pad + f[1] * (Hh - pad * 2)
+      });
+    });
+    const byId = Object.fromEntries(N.map((n) => [n.id, n]));
+    const E = graph.edges.map(([a, b]) => ({ a: byId[a], b: byId[b], key: a + '-' + b }));
+
+    // sweep ring — the "scanning" flourish, one per stage
+    const sweep = document.createElementNS(ns, 'g');
+    const ring = document.createElementNS(ns, 'circle');
+    ring.setAttribute('class', 'sweep');
+    ring.setAttribute('cx', W / 2); ring.setAttribute('cy', Hh / 2);
+    ring.setAttribute('r', Math.min(W, Hh) * 0.42);
+    ring.setAttribute('stroke-dasharray', '2 10');
+    sweep.appendChild(ring);
+    sweep.style.transformOrigin = `${W / 2}px ${Hh / 2}px`;
+    sweep.style.animation = 'sweep 26s linear infinite';
+    svg.appendChild(sweep);
+
+    const eg = document.createElementNS(ns, 'g'); svg.appendChild(eg);
+    const ng = document.createElementNS(ns, 'g'); svg.appendChild(ng);
+
+    E.forEach((e) => {
+      const l = document.createElementNS(ns, 'line');
+      let cls = 'edge';
+      if ((graph.down || []).includes(e.key)) cls += ' down';
+      if ((graph.path || []).includes(e.key)) cls += ' path-edge';
+      l.setAttribute('class', cls);
+      eg.appendChild(l);
+      e.node = l;
+    });
+
+    N.forEach((n) => {
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'node');
+      g.setAttribute('tabindex', '0');
+      const halo = document.createElementNS(ns, 'circle');
+      halo.setAttribute('class', 'halo'); halo.setAttribute('r', n.r + 7);
+      halo.style.opacity = n.status === 'busy' ? '0.5' : '0';
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('r', n.r);
+      c.setAttribute('class', 'n-' + n.kind);
+      const t = document.createElementNS(ns, 'text');
+      t.textContent = n.label;
+      g.appendChild(halo); g.appendChild(c); g.appendChild(t);
+      ng.appendChild(g);
+      n.g = g; n.halo = halo; n.text = t;
+      const pick = () => select(graph, n, N);
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+    });
+
+    // place once — authored positions, no settling
+    N.forEach((n) => {
+      n.g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+      n.text.setAttribute('y', -n.r - 9);
+    });
+    E.forEach((e) => {
+      e.node.setAttribute('x1', e.a.x.toFixed(1)); e.node.setAttribute('y1', e.a.y.toFixed(1));
+      e.node.setAttribute('x2', e.b.x.toFixed(1)); e.node.setAttribute('y2', e.b.y.toFixed(1));
+    });
+
+    // the only thing that animates is the pulse travelling the traced path
+    const path = graph.path || [];
+    function tick() {
+      if (pulseT > 0) {
+        pulseT -= 1;
+        const at = path.length ? Math.floor(pulseT / 9) % path.length : -1;
+        E.forEach((e) => e.node.classList.toggle('hot', path.indexOf(e.key) === at));
+        if (pulseT === 0) E.forEach((e) => e.node.classList.remove('hot'));
+      }
+      sim = requestAnimationFrame(tick);
+    }
+    tick();
+
+    G = graph;
+    $('#graph-meta').textContent = `${name} · ${N.length} nodes · ${E.length} edges`;
+  }
+
+  function select(graph, n, all) {
+    selected = n;
+    all.forEach((x) => x.g.classList.toggle('sel', x === n));
+    all.forEach((x) => { x.halo.style.opacity = x === n ? '0.75' : (x.status === 'busy' ? '0.5' : '0'); });
+    const d = (graph.detail || {})[n.id];
+    const host = $('#inspector');
+    $('#insp-kind').textContent = n.kind === 'peer' || n.kind === 'core' ? 'node' : n.kind;
+    host.replaceChildren();
+    const h = el('div', { class: 'row', style: 'margin-bottom:var(--space-4)' });
+    h.appendChild(el('span', { class: 'h4 mono', text: n.label }));
+    host.appendChild(h);
+    if (!d) {
+      host.appendChild(el('p', { class: 'meta', text: 'No detail record on this snapshot. Ask weave in the console and she will pull it live.' }));
+    } else {
+      const dl = el('dl');
+      for (let i = 0; i < d.length; i += 2) {
+        dl.appendChild(el('dt', { text: d[i] }));
+        dl.appendChild(el('dd', { text: d[i + 1] }));
+      }
+      host.appendChild(dl);
+    }
+    const ask = el('button', { class: 'btn btn-sm btn-mono', style: 'margin-top:var(--space-4)', text: 'Ask weave about this' });
+    ask.addEventListener('click', () => {
+      H.store.set('weave.pending', 'Tell me about ' + n.label + '.');
+      location.href = 'console.html';
+    });
+    host.appendChild(ask);
+  }
+
+  /* ── mode switching ─────────────────────────────────────────────── */
+  function setMode(mode) {
+    $('#mode-swarm').setAttribute('aria-pressed', String(mode === 'swarm'));
+    $('#mode-twin').setAttribute('aria-pressed', String(mode === 'twin'));
+    // the strip exists only while a pack-contributed view is on screen
+    $('#prov').hidden = mode !== 'twin';
+    load(mode === 'swarm' ? SWARM : TWIN, mode === 'swarm' ? 'swarm · core' : 'digital twin · pack · network 212984');
+    $('#inspector').replaceChildren(el('p', { class: 'meta', text: 'Select a node on the hologram.' }));
+  }
+  $('#mode-swarm').addEventListener('click', () => setMode('swarm'));
+  $('#mode-twin').addEventListener('click', () => setMode('twin'));
+  $('#pulse').addEventListener('click', () => {
+    if (G !== TWIN) setMode('twin');
+    pulseT = 420;
+    H.toast('tracing branch-vpn-01 → payments-vip');
+  });
+
+  setMode('swarm');
+
+  /* ── plugin registry ────────────────────────────────────────────────
+     The twelve system plugins that declare a plugin.json in
+     src/composition/plugins/. `manage` is required: true — disabling it
+     would remove the ability to re-enable anything, so its toggle is dead
+     by design. `forward` is class:system kind:skill but its skills and
+     vendored python live out of tree in weave-plugins (ADR-0045). */
+  const PLUGINS = [
+    { n: 'tasks',     c: 'commands', ds: 'Declare and settle. Owns the claim–lease write path.' },
+    { n: 'manage',    c: 'commands', req: true, ds: 'The plugin manager itself. Required — it can never be disabled.' },
+    { n: 'canvas',    c: 'tools',    ds: 'Named canvases and board panels. Every visualization on this surface.' },
+    { n: 'console',   c: 'surface',  ds: 'Voice display tools — show_answer, show_table, show_metrics, show_path.' },
+    { n: 'developer', c: 'tools',    ds: 'Master coordinator. Isolate → verify → propose. Never pushes or merges.' },
+    { n: 'overlays',  c: 'tools',    ds: 'Skill-resolution stack. Layers persona packs over the base skill set.' },
+    { n: 'training',  c: 'tools',    ds: 'Capture mode. Turns corrections into durable findings.' },
+    { n: 'claude',    c: 'tools',    ds: 'Model provider for persona routing.' },
+    { n: 'codex',     c: 'tools',    ds: 'Model provider for persona routing.' },
+    { n: 'ollama',    c: 'tools',    ds: 'Local model tier — the fallback peer-04 is running on.' },
+    { n: 'websearch', c: 'tools',    ds: 'Web retrieval tool.' },
+    { n: 'forward',   c: 'skill',    ext: true,
+      ds: 'Forward Networks — the netops persona and all forward-* skills. Ships out of tree.' }
+  ];
+
+  const plugHost = $('#plugins');
+  function renderPlugins() {
+    plugHost.replaceChildren();
+    PLUGINS.forEach((p) => {
+      if (p.on === undefined) p.on = true;
+      const row = el('div', { class: 'plugin', 'data-enabled': String(p.on), 'data-od-id': 'plugin-' + p.n });
+      const left = el('div');
+      left.appendChild(el('span', { class: 'nm', text: p.n }));
+      left.appendChild(el('span', { class: 'con', style: 'margin-left:8px', text: p.c }));
+      row.appendChild(left);
+
+      const tog = el('button', {
+        class: 'tog', 'data-name': p.n, 'aria-pressed': String(p.on),
+        text: p.req ? 'core' : (p.on ? 'enabled' : 'disabled')
+      });
+      if (p.req) tog.disabled = true;
+      row.appendChild(tog);
+      row.appendChild(el('span', { class: 'ds', text: p.ds }));
+
+      if (p.ext) {
+        const t = el('div', { class: 'trustline' });
+        t.appendChild(el('span', { class: 'packtag', text: 'out of tree' }));
+        t.appendChild(el('span', { class: 'meta mono', text: 'gaberger/weave-plugins' }));
+        t.appendChild(el('span', { class: 'pill pill-ok', text: 'pinned' }));
+        row.appendChild(t);
+      }
+      plugHost.appendChild(row);
+    });
+    const off = PLUGINS.filter((p) => !p.on).length;
+    $('#plug-count').textContent = '12 system · ' + (off ? off + ' disabled' : '0 user');
+  }
+  renderPlugins();
+
+  plugHost.addEventListener('click', (e) => {
+    const b = e.target.closest('.tog');
+    if (!b || b.disabled) return;
+    const p = PLUGINS.find((x) => x.n === b.dataset.name);
+    p.on = !p.on;
+    renderPlugins();
+    H.toast('POST {plugin:{name:"' + p.n + '",enabled:' + p.on + '}} → gateway');
+
+    /* forward contributes the twin views. Disable the pack and they leave the
+       interface — the log, the leases and the gate are untouched. */
+    if (p.n === 'forward') {
+      const twinBtn = $('#mode-twin');
+      const pulseBtn = $('#pulse');
+      twinBtn.disabled = !p.on;
+      pulseBtn.disabled = !p.on;
+      twinBtn.title = p.on ? '' : 'contributed by the forward pack — currently disabled';
+      if (!p.on && twinBtn.getAttribute('aria-pressed') === 'true') {
+        setMode('swarm');
+        H.toast('twin views withdrawn — swarm is core, it stays');
+      }
+    }
+  });
+
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => setMode($('#mode-twin').getAttribute('aria-pressed') === 'true' ? 'twin' : 'swarm'), 220); });
+})();
+</script>
+</body>
+</html>
