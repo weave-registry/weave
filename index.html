@@ -23,7 +23,7 @@
   .shot .viewport { position: absolute; inset: 34px 0 0; overflow: hidden; }
   /* 1180px viewport puts the console on its 2-column breakpoint, so the
      transcript is legible at hero scale instead of being a grey smudge */
-  .shot iframe { width: 1180px; height: 690px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .shot iframe { position: absolute; inset: 0; z-index: 1; width: 1180px; height: 690px; border: 0; transform-origin: 0 0; pointer-events: none; }
   .shot .glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 46%); }
 
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); align-items: center; }
@@ -151,7 +151,9 @@
           <div class="shot brackets" data-od-id="hero-shot">
             <div class="chrome"><i></i><i></i><i></i><span class="url">127.0.0.1:8788 — blackboard</span></div>
             <div class="viewport">
-              <!-- fallback sits behind the iframe; visible only if the console fails to load -->
+              <!-- Fallback, painted UNDER the iframe (which is positioned with z-index:1). Visible only
+                     when console.html fails to load — it was previously absolute over a static iframe,
+                     so it covered a console that had loaded perfectly well. -->
               <div style="position:absolute;inset:0;display:grid;place-items:center;padding:var(--space-6);text-align:center">
                 <p class="meta" style="max-width:32ch;line-height:1.6">
                   The console preview needs <span class="mono">console.html</span> alongside this page.
