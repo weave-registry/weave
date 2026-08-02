@@ -23,7 +23,7 @@
   .shot .viewport { position: absolute; inset: 34px 0 0; overflow: hidden; }
   /* 1180px viewport puts the console on its 2-column breakpoint, so the
      transcript is legible at hero scale instead of being a grey smudge */
-  .shot iframe { position: absolute; inset: 0; z-index: 1; width: 1180px; height: 690px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .shot img#shot-frame { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; border: 0; }
   .shot .glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 46%); }
 
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); align-items: center; }
@@ -98,7 +98,7 @@
     .split { grid-template-columns: 1fr; gap: var(--space-8); }
     .log-row { grid-template-columns: 1fr; gap: var(--space-2); }
     .log-row .pull { text-align: left; }
-    .shot iframe { width: 1400px; height: 900px; }
+    .shot img#shot-frame { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; border: 0; }
   }
 </style>
 </head>
@@ -156,11 +156,11 @@
                      so it covered a console that had loaded perfectly well. -->
               <div style="position:absolute;inset:0;display:grid;place-items:center;padding:var(--space-6);text-align:center">
                 <p class="meta" style="max-width:32ch;line-height:1.6">
-                  The console preview needs <span class="mono">console.html</span> alongside this page.
+                  Console preview unavailable.
                   <br /><a class="hot" href="console.html">Open it directly →</a>
                 </p>
               </div>
-              <iframe src="console.html" title="weave command console" loading="lazy" tabindex="-1" aria-hidden="true" id="shot-frame"></iframe>
+              <img src="image.png" alt="the weave console: peer pool, task log, and the live event stream" id="shot-frame" />
             </div>
             <div class="glare" aria-hidden="true"></div>
           </div>
@@ -437,20 +437,6 @@
 </div>
 
 <script src="assets/hud.js"></script>
-<script>
-(function () {
-  /* scale the live console shot to fit its frame, and keep it fitted on resize */
-  const frame = document.getElementById('shot-frame');
-  const fit = () => {
-    const vp = frame.parentElement;
-    const w = vp.clientWidth;
-    if (!w) return;
-    frame.style.transform = 'scale(' + (w / frame.offsetWidth) + ')';
-  };
-  fit();
-  window.addEventListener('resize', fit);
-  frame.addEventListener('load', fit);
-})();
-</script>
+
 </body>
 </html>
