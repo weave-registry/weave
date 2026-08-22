@@ -117,8 +117,9 @@
     <div class="spacer"></div>
     <nav class="mainnav" aria-label="Primary">
       <a href="#how">How it works</a>
+      <a href="#fleet">The fleet</a>
       <a href="#surfaces">Surfaces</a>
-      <a href="#roadmap">Roadmap</a>
+      <a href="#roadmap">Shipped</a>
     </nav>
     <a class="meta" href="https://github.com/weave-registry/weave"
        style="display:inline-flex;align-items:center;min-height:26px;padding:0 10px;margin-right:var(--space-2);border-radius:var(--radius-sm)">GitHub</a>
@@ -348,63 +349,100 @@
       </div>
     </section>
 
-    <!-- roadmap -->
+    <!-- the fleet -->
+    <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="fleet" data-od-id="fleet">
+      <div class="container-wide" style="max-width:1440px">
+        <div style="max-width:52ch;margin-bottom:var(--space-12)">
+          <p class="eyebrow" style="margin-bottom:var(--space-4)">The fleet</p>
+          <h2 style="font-size:var(--text-2xl)">Machines join with a secret. Everything else is automatic.</h2>
+          <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
+            Addresses are discovered, identity persists, the wire encrypts itself, and every dollar has a ceiling.
+            Configuration is one shared secret — because membership <em>is</em> the secret.
+          </p>
+        </div>
+        <div class="grid-3">
+          <div class="feature" data-od-id="feature-join">
+            <div class="frag">
+              <span class="mono" style="font-size:var(--text-xs);color:var(--fg-2)">$ weave up --daemon</span>
+              <span class="meta">discovery: mdns found max · bazzite</span>
+              <span class="meta"><span class="hot">replication:</span> following https://… <span class="mono">(tls)</span></span>
+            </div>
+            <h3>Three commands to join</h3>
+            <p>Export the secret, pick your scope, <span class="mono">weave up</span>. mDNS finds the fleet, one link makes itself bidirectional, and the newcomer syncs exactly the history it is missing. Restart it ten times — it is the same peer ten times.</p>
+          </div>
+          <div class="feature" data-od-id="feature-wire">
+            <div class="frag">
+              <span class="pill pill-ok" style="align-self:flex-start"><span class="dot"></span> channel verified</span>
+              <span class="meta mono">HMAC(secret, sha256(cert)) · per connection</span>
+            </div>
+            <h3>Encrypted by default</h3>
+            <p>Replication speaks TLS with a self-signed cert the shared secret vouches for — verified against the certificate each dialer actually observed. No CA, no pinning, no first-contact window. An interceptor simply fails.</p>
+          </div>
+          <div class="feature" data-od-id="feature-budget">
+            <div class="frag">
+              <span class="meta mono">fleet $25/24h · task $2 · tree $10 · local $0</span>
+              <span class="meta">ceilings on by default · free backends exempt</span>
+            </div>
+            <h3>Money is an invariant</h3>
+            <p>A rolling fleet budget, a per-task tripwire that aborts mid-turn, and a lifetime budget per spawn tree — fan-out multiplies tasks, never allowances. Backends declare how they bill, and per-token ones are never auto-selected over your subscription or a free local model.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- shipped -->
     <section class="section" style="padding-block:var(--section-y-tablet);border-top:1px solid var(--border)" id="roadmap" data-od-id="roadmap">
       <div class="container-wide" style="max-width:1440px">
         <div style="max-width:52ch;margin-bottom:var(--space-8)">
-          <p class="eyebrow" style="margin-bottom:var(--space-4)">Where it is going</p>
-          <h2 style="font-size:var(--text-2xl)">Shipped, and honestly scored.</h2>
+          <p class="eyebrow" style="margin-bottom:var(--space-4)">Where it is</p>
+          <h2 style="font-size:var(--text-2xl)">Decided in writing, shipped in slices, drilled live.</h2>
           <p class="lead" style="margin-top:var(--space-4);font-size:var(--text-base)">
-            These numbers come from an adversarial read of this repo — eight skeptics scoring with file-and-line
-            evidence, then a red-team pass re-verifying them. It is not marketing. The worst score is ours to fix.
+            Sixty-five architecture decision records, each written before its code. The invariants are not just
+            unit-tested — they are drilled on a live multi-machine fleet: halt the board, declare N tasks, resume
+            so every peer pounces at once, and count N completions.
           </p>
-          <p class="meta" style="margin-top:var(--space-3)">source · <span class="mono">docs/jarvis-gap-analysis.md</span></p>
-        </div>
-
-        <!-- the scorecard the phases are measured against -->
-        <div class="scorecard" data-od-id="scorecard">
-          <div class="dim-row"><span class="n">Digital-twin interaction</span><span class="p num">40%</span><span class="bar"><i style="width:40%"></i></span></div>
-          <div class="dim-row mid"><span class="n">Voice assistant</span><span class="p num">28%</span><span class="bar"><i style="width:28%"></i></span></div>
-          <div class="dim-row mid"><span class="n">Trust / safety / agency</span><span class="p num">27%</span><span class="bar"><i style="width:27%"></i></span></div>
-          <div class="dim-row mid"><span class="n">Proactive autonomy</span><span class="p num">17%</span><span class="bar"><i style="width:17%"></i></span></div>
-          <div class="dim-row low"><span class="n">Realtime interactivity</span><span class="p num">15%</span><span class="bar"><i style="width:15%"></i></span></div>
-          <div class="dim-row low"><span class="n">Multimodal / ambient</span><span class="p num">14%</span><span class="bar"><i style="width:14%"></i></span></div>
-          <div class="dim-row low"><span class="n">Memory / personalization</span><span class="p num">13%</span><span class="bar"><i style="width:13%"></i></span></div>
-          <div class="dim-row low"><span class="n">Visual blackboard</span><span class="p num">5%</span><span class="bar"><i style="width:5%"></i></span></div>
         </div>
 
         <div>
-          <article class="log-row" data-od-id="phase-1">
-            <span class="meta">Phase 1 · shipped</span>
+          <article class="log-row" data-od-id="phase-core">
+            <span class="meta">shipped</span>
             <div>
-              <h3>An outbound surface</h3>
-              <p>SSE stream, a replayable event feed, the web blackboard, force-directed twin rendering, and browser-native speech in and out. One missing capability was blocking three dimensions at once.</p>
+              <h3>Coordination core</h3>
+              <p>Exactly-once claims under leases, self-healing execution, fan-out with lineage, compaction, and a replicated log that any host can die out of — solo to swarm to federated as an adapter choice.</p>
             </div>
-            <span class="pill pill-ok pull">blackboard 5 → 30%</span>
+            <span class="pill pill-ok pull">drill-verified</span>
           </article>
-          <article class="log-row" data-od-id="phase-2">
-            <span class="meta">Phase 2 · next</span>
+          <article class="log-row" data-od-id="phase-guardrails">
+            <span class="meta">shipped</span>
             <div>
-              <h3>Realtime voice loop</h3>
-              <p>A conversational path that bypasses the job substrate — full duplex with echo cancellation, token-delta streaming to TTS, and off the macOS-only guard.</p>
+              <h3>Guardrails denominated in dollars</h3>
+              <p>Fleet, per-task, and per-tree spend ceilings on by default; cost-aware backend selection so billing is always a declared choice; free local backends unmetered and unblocked.</p>
             </div>
-            <span class="pill pull">voice 28%</span>
+            <span class="pill pill-ok pull">on by default</span>
           </article>
-          <article class="log-row" data-od-id="phase-3">
-            <span class="meta">Phase 3</span>
+          <article class="log-row" data-od-id="phase-fleet">
+            <span class="meta">shipped</span>
             <div>
-              <h3>Genuine autonomy</h3>
-              <p>A durable standing-goal abstraction that survives restart, and a loop runner that recalls prior ticks and decides whether acting is worth it.</p>
+              <h3>A self-assembling fleet</h3>
+              <p>mDNS discovery with self-contained announcements, addresses carried in the log itself, follower introduction, persistent derived identity — and <span class="mono">weave peers</span>, the whole fleet from any replica, including whoever is currently unreachable.</p>
             </div>
-            <span class="pill pull">autonomy 17%</span>
+            <span class="pill pill-ok pull">zero config</span>
           </article>
-          <article class="log-row" data-od-id="phase-4">
-            <span class="meta">Phase 4</span>
+          <article class="log-row" data-od-id="phase-wire">
+            <span class="meta">shipped</span>
             <div>
-              <h3>User memory and a trust envelope</h3>
-              <p>Identity, preference and interaction nodes in the knowledge graph, plus a learned envelope for what may run unattended — beyond today's authorization skeleton.</p>
+              <h3>An encrypted wire</h3>
+              <p>TLS by default with secret-bound channel verification, TLS-first dialing, and downgrade protection for any link that has ever spoken it.</p>
             </div>
-            <span class="pill pull">memory 13%</span>
+            <span class="pill pill-ok pull">MITM-proof</span>
+          </article>
+          <article class="log-row" data-od-id="phase-next">
+            <span class="meta">next</span>
+            <div>
+              <h3>Pairing, not files</h3>
+              <p><span class="mono">weave invite</span> / <span class="mono">weave join</span> — the one remaining secret handed over the discovered, encrypted channel with a short-lived code, making a new machine a handshake instead of configuration.</p>
+            </div>
+            <span class="pill pull">designed</span>
           </article>
         </div>
       </div>
@@ -415,7 +453,8 @@
       <div class="container" style="max-width:640px">
         <h2 style="font-size:var(--text-2xl)">Start the pool. Then just ask it something.</h2>
         <p class="lead" style="margin:var(--space-4) auto var(--space-6);max-width:46ch">
-          Two commands bring up the surface and the workers. Everything else happens in the log.
+          Two commands bring up the surface and the workers; three join a whole new machine.
+          Everything else happens in the log — discovered, encrypted, exactly once.
         </p>
         <div class="row" style="justify-content:center;gap:var(--space-3)">
           <a class="btn btn-primary" href="console.html">Open the console</a>
@@ -428,7 +467,7 @@
   <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
     <div class="container-wide row-between wrap" style="max-width:1440px">
       <span class="meta">
-        weave <span class="mono">v0.1.0</span> · MIT · © 2026 Gary Berger ·
+        weave <span class="mono">v0.2.75</span> · MIT · © 2026 Gary Berger ·
         <a class="hot" href="https://github.com/weave-registry/weave">gaberger/weave</a>
       </span>
       <span class="meta">packs · <a class="hot mono" href="https://github.com/weave-registry/weave-labs">gaberger/weave-plugins</a></span>
