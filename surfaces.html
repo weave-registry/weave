@@ -201,9 +201,9 @@
         </article>
 
         <p class="allclear" data-od-id="all-clear">
-          Nothing else needs you. <span class="num">2</span> tasks in flight,
-          <span class="num">26</span> devices audited in the last hour,
-          <span class="num">0</span> starved.
+          Nothing else needs you. Everything on this page is a fold of one replicated
+          event log — tasks, leases, verdicts, spend, peers — so what you see here is
+          what every host sees.
         </p>
       </div>
 
@@ -228,37 +228,37 @@
       </div>
     </section>
 
-    <!-- ─── vitals strip ───────────────────────────────────────────── -->
+    <!-- ─── vitals strip — the real architecture, one fact per cell ── -->
     <section class="strip" data-od-id="vitals-strip">
       <div class="strip-inner">
         <div class="svc">
-          <div class="top"><span class="n">substrate</span><span class="pill pill-ok">up</span></div>
-          <span class="d">41,213 events · compacted 2h ago</span>
+          <div class="top"><span class="n">substrate</span><span class="pill pill-ok">append-only</span></div>
+          <span class="d">one replicated event log · HLC total order · compaction built in</span>
         </div>
         <div class="svc">
-          <div class="top"><span class="n">gateway :8787</span><span class="pill pill-ok">up</span></div>
-          <span class="d">POST /hook · the only write path</span>
+          <div class="top"><span class="n">console :8788</span><span class="pill pill-ok">tls</span></div>
+          <span class="d">accounts + sessions · TLS by default off loopback · browsers write same-origin</span>
         </div>
         <div class="svc">
-          <div class="top"><span class="n">blackboard :8788</span><span class="pill pill-ok">up</span></div>
-          <span class="d">SSE · 3 subscribers · replay armed</span>
+          <div class="top"><span class="n">gateway :8787</span><span class="pill pill-ok">armed</span></div>
+          <span class="d">POST /hook · the machine write path — hooks, curl, peers</span>
         </div>
         <div class="svc">
-          <div class="top"><span class="n">pool</span><span class="pill pill-warn">1 degraded</span></div>
-          <span class="d">peer-04 on the local model tier</span>
+          <div class="top"><span class="n">replication :8790</span><span class="pill pill-ok">tls</span></div>
+          <span class="d">encrypted, channel-bound · peers find each other over mDNS</span>
         </div>
         <div class="svc">
-          <div class="top"><span class="big">14</span><span class="label">claims/min</span></div>
-          <span class="d">lease contention 0.3%</span>
+          <div class="top"><span class="n">fleet controls</span><span class="pill pill-ok">replicated</span></div>
+          <span class="d">halt/resume reach every host · a failing backend halts itself and says so</span>
         </div>
       </div>
     </section>
 
-    <!-- ─── surfaces ───────────────────────────────────────────────── -->
+    <!-- ─── surfaces — the shipped routes, one card each ───────────── -->
     <section class="strip" style="padding-bottom:var(--section-y-tablet)" data-od-id="surfaces">
       <div class="row-between wrap" style="margin-bottom:var(--space-5)">
-        <h2 style="font-size:var(--text-xl)">Three ways into the same event log.</h2>
-        <span class="meta">every surface reads the same SSE stream · the gateway is the only write path</span>
+        <h2 style="font-size:var(--text-xl)">Six surfaces into the same event log.</h2>
+        <span class="meta">every page folds the same SSE stream · fleet halt shows on all of them, with Resume in place</span>
       </div>
 
       <div class="surfaces">
@@ -266,9 +266,17 @@
           <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
             <path d="M4 6h16v12H4z" /><path d="M7.5 10.5l2.2 2.2-2.2 2.2M12.5 15h4" />
           </svg>
-          <h3>Command console</h3>
-          <p>Where you actually work. Talk or type; tool calls, board panels, and the effect gate all resolve in one transcript against the live peer pool.</p>
-          <div class="go"><span class="btn btn-primary btn-sm">Open the console</span></div>
+          <h3>Command console <span class="mono meta">/</span></h3>
+          <p>Where you actually work. Talk or type; tool calls, board panels, and the effect gate all resolve in one transcript against the live peer pool — with a fleet kill switch in the statusbar and down peers shown, never hidden.</p>
+          <div class="go"><span class="btn btn-primary btn-sm">See the demo</span></div>
+        </a>
+        <a class="surface" href="task-detail.html" data-od-id="surface-tasks">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M5 4h11l3 3v13H5z" /><path d="M8.5 12l2 2 4-4" />
+          </svg>
+          <h3>Task record <span class="mono meta">/task</span></h3>
+          <p>One task's whole lifecycle with the events behind it — re-run it, cancel it, or halt the fleet from the same rail.</p>
+          <div class="go"><span class="meta hot">demo →</span></div>
         </a>
         <a class="surface" href="network.html" data-od-id="surface-network">
           <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
@@ -276,26 +284,43 @@
             <circle cx="4.5" cy="18" r="1.8" /><circle cx="19.5" cy="18" r="1.8" />
             <path d="M6 7l4.3 3.6M18 7l-4.3 3.6M6 17l4.3-3.6M18 17l-4.3-3.6" />
           </svg>
-          <h3>Swarm</h3>
-          <p>Peers, claims and leases — core. The digital twin is a pack overlay.</p>
-          <div class="go"><span class="meta hot">swarm →</span></div>
+          <h3>Swarm <span class="mono meta">/swarm</span></h3>
+          <p>Peers, claims and leases folded live from heartbeats. The digital twin is a pack overlay.</p>
+          <div class="go"><span class="meta hot">demo →</span></div>
         </a>
-        <a class="surface" href="task-detail.html" data-od-id="surface-tasks">
+        <div class="surface" data-od-id="surface-peers">
           <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-            <path d="M5 4h11l3 3v13H5z" /><path d="M8.5 12l2 2 4-4" />
+            <circle cx="7" cy="8" r="2.4" /><circle cx="17" cy="8" r="2.4" /><circle cx="12" cy="17" r="2.4" />
+            <path d="M8.8 9.8L11 15M15.2 9.8L13 15M9.4 8h5.2" />
           </svg>
-          <h3>Task record</h3>
-          <p>One task's whole lifecycle, with the events behind it.</p>
-          <div class="go"><span class="meta hot">tasks →</span></div>
-        </a>
+          <h3>Fleet <span class="mono meta">/peers</span></h3>
+          <p>The fleet by node: who is live, on which build, from which address — server-projected, with silent members called out by name.</p>
+          <div class="go"><span class="meta">on every install</span></div>
+        </div>
+        <div class="surface" data-od-id="surface-plugins">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M4 8h6V4h4v4h6v6h-4v4h-4v-4H4z" />
+          </svg>
+          <h3>Plugins <span class="mono meta">/plugins</span></h3>
+          <p>The live registry: enabled state, declared capabilities, contributed routes — install and toggle from the page.</p>
+          <div class="go"><span class="meta">on every install</span></div>
+        </div>
+        <div class="surface" data-od-id="surface-packs">
+          <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" />
+          </svg>
+          <h3>Packs <span class="mono meta">/packs</span></h3>
+          <p>Out-of-tree persona packs with their verification state — signature-gated before anything loads.</p>
+          <div class="go"><span class="meta">on every install</span></div>
+        </div>
       </div>
     </section>
   </main>
 
   <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
     <div class="container-wide row-between wrap" style="max-width:1440px">
-      <span class="meta">weave · cooperative-agent harness</span>
-      <span class="meta"><a href="index.html" class="hot">What is weave?</a> · <span class="mono">weave serve</span> + <span class="mono">weave pool --persona netops</span></span>
+      <span class="meta">weave · cooperative-agent harness · <span class="mono">v0.2.78</span></span>
+      <span class="meta"><a href="index.html" class="hot">What is weave?</a> · <span class="mono">weave dev</span> to run everything on one box · <span class="mono">weave up --discover mdns</span> to join a fleet</span>
     </div>
   </footer>
 </div>
@@ -310,10 +335,10 @@
   /* ── cold start: once per session, skippable, never opaque ──────── */
   const bootLines = [
     'hex gate · <span class="ok">doctor green</span>',
-    'opening substrate · <span class="mono">~/.weave/weave.db</span>',
-    'replaying log from seq 41208 · <span class="ok">ok</span>',
-    'gateway :8787 <span class="ok">armed</span> · blackboard :8788 <span class="ok">streaming</span>',
-    'peers · <span class="ok">3 up</span> · <span class="warn-t">1 degraded</span>'
+    'opening substrate · <span class="mono">~/.weave/networks/home/weave.db</span>',
+    'tls · console + gateway + replication · <span class="ok">on</span>',
+    'discovery · <span class="mono">--discover mdns</span> · <span class="ok">peers found</span>',
+    'replaying the recent tail · <span class="ok">live</span>'
   ];
   let boot = null, bootDone = false;
   function dismissBoot() {
