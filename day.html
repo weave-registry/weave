@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>weave · a day with weave</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/hud.css" />
+<style>
+  .hero { max-width: 1440px; margin-inline: auto; padding: var(--space-12) var(--container-gutter-desktop) var(--space-8); }
+  .hero h1 { font-size: clamp(28px, 3.6vw, var(--text-3xl)); font-weight: 700; color: var(--fg); letter-spacing: var(--tracking-display); line-height: 1.12; max-width: 22ch; }
+  .hero .lede { max-width: 60ch; margin-top: var(--space-5); font-size: var(--text-lg); color: var(--fg-2); }
+  .tryit {
+    margin-top: var(--space-6); display: inline-flex; align-items: center; gap: var(--space-4);
+    background: color-mix(in oklab, var(--accent) 9%, var(--surface));
+    border: 1px solid var(--accent-line); border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5); font-family: var(--font-mono); font-size: var(--text-base); color: var(--fg);
+  }
+  .tryit .p { color: var(--accent); }
+  .strip { max-width: 1440px; margin-inline: auto; padding: 0 var(--container-gutter-desktop) var(--space-12); }
+  .moment {
+    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--space-8);
+    align-items: start; padding: var(--space-8) 0; border-top: 1px solid var(--border-soft);
+  }
+  .moment:first-of-type { border-top: 0; }
+  .moment h3 { font-size: var(--text-xl); color: var(--fg); margin-bottom: var(--space-3); }
+  .moment .story { font-size: var(--text-base); color: var(--fg-2); line-height: 1.65; }
+  .moment .story .mono { color: var(--meta); }
+  .evidence {
+    background: color-mix(in oklab, var(--surface) 88%, var(--bg)); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); overflow-x: auto;
+  }
+  .evidence .cap { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--space-3); display: block; }
+  .evidence pre { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.8; color: var(--fg-2); white-space: pre; }
+  .evidence .ok { color: var(--success); } .evidence .hot2 { color: var(--accent); } .evidence .w { color: var(--warn); }
+  @media (max-width: 1000px) { .moment { grid-template-columns: 1fr; gap: var(--space-4); } }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+<div class="page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">a day with weave</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="day.html" aria-current="page">A day</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="assurance.html">Assurance</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <a class="meta" href="index.html">What is weave?</a>
+      <span class="pill pill-ok"><span class="dot dot-live"></span> from real transcripts</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" data-od-id="day-hero">
+      <p class="eyebrow" style="margin-bottom:var(--space-4)">Utility, not features</p>
+      <h1>It works for you. It interrupts you once. It asks before the irreversible thing.</h1>
+      <p class="lede">
+        Five moments from an ordinary day running weave — each one a real transcript from a live
+        three-node fleet, not a mockup. The pattern underneath all five: you stop watching, and
+        the fleet earns it.
+      </p>
+      <div class="tryit"><span class="p">$</span> weave tour <span class="meta" style="text-transform:none;letter-spacing:0">— feel this whole page in five minutes, sandboxed, no API key</span></div>
+    </section>
+
+    <section class="strip" data-od-id="moments">
+
+      <article class="moment">
+        <div>
+          <h3>It noticed first.</h3>
+          <p class="story">A node's peer died while nobody was looking. Thirty minutes later — the
+          threshold that separates a blip from a problem — the standing brief flagged it, named it,
+          aged it, and said what to do. Nobody asked. Nobody was watching a dashboard. The judgment
+          is a fold over the fleet's own log, so it can't miss what the log records.</p>
+        </div>
+        <div class="evidence"><span class="cap">live transcript · peer stopped 16:12:34Z</span>
+<pre>16:42:47Z  <span class="w">●</span> bazzite has gone silent
+           last heartbeat 30m ago — down, partitioned, or its host slept
+           → weave peers shows the fleet by node; restart its unit on that host</pre>
+        </div>
+      </article>
+
+      <article class="moment">
+        <div>
+          <h3>Delegate, and forget.</h3>
+          <p class="story">One command creates a standing job the <em>fleet</em> owns — no cron, no
+          unit file, no single machine whose death kills the schedule. Every window fires exactly
+          once no matter how many peers race for it, every run is bounded by the budget you gave
+          it, and the ledger attributes the cost by name.</p>
+        </div>
+        <div class="evidence"><span class="cap">live transcript · three windows, one line of ledger</span>
+<pre><span class="hot2">$</span> weave schedule set jarvis-proof "…" --interval 1m --budget-usd 0.25
+  sched-jarvis-proof-29791694 done   17s
+  sched-jarvis-proof-29791693 done    1m
+  sched-jarvis-proof-29791692 done    2m
+─ by schedule
+  jarvis-proof   $0.03  <span class="ok">48.5k tok · 3 task(s)</span></pre>
+        </div>
+      </article>
+
+      <article class="moment">
+        <div>
+          <h3>Ask it what happened. It knows.</h3>
+          <p class="story">Every conversational turn is briefed with ground truth folded from the
+          log at the moment you ask — counts, failures, spend, the fleet's health, and the notes
+          you told it to keep. So the answer comes from what happened, not from what sounds
+          plausible — even when the free local model is the one answering.</p>
+        </div>
+        <div class="evidence"><span class="cap">live transcript · asked on the real fleet</span>
+<pre><span class="hot2">you:</span> what has the fleet been doing in the last hour — did anything fail?
+<span class="ok">weave:</span> the fleet declared 9 tasks, completed 6, and failed 3 due to
+hitting spend limits ($0.07 for one task…). Four nodes are currently
+silent — bazzite-advisor (1244m), bazzite-sweep, garys-3c8e66e7 (601m)…</pre>
+        </div>
+      </article>
+
+      <article class="moment">
+        <div>
+          <h3>It asks before the irreversible thing.</h3>
+          <p class="story">Declare a task with <span class="mono">--confirm</span> and every
+          irreversible call parks and asks — on the console as an Approve/Deny card, on any host's
+          terminal, on your phone. And the rule under the rule: <em>silence past the timeout is a
+          no.</em> An absent you is never an implicit yes.</p>
+        </div>
+        <div class="evidence"><span class="cap">live transcript · the parked call and its release</span>
+<pre><span class="w">●</span> req-demo02  forward_ssh_provision → EDGE_IN on Gi0/0/2
+   weave grants approve req-demo02  ·  weave grants deny req-demo02
+<span class="hot2">$</span> weave grants approve req-demo02
+<span class="ok">✓</span> grant APPROVED — the parked call proceeds</pre>
+        </div>
+      </article>
+
+      <article class="moment">
+        <div>
+          <h3>One page per incident. Not sixty.</h3>
+          <p class="story">When something genuinely needs you, it reaches your channel once — with
+          the remedy in the message. A standing problem stays quiet; a new one pages again. In the
+          recorded run: two staged incidents, two messages, and twelve minutes of a standing alert
+          delivering nothing more. Interruptions you can trust are interruptions you'll allow.</p>
+        </div>
+        <div class="evidence"><span class="cap">live capture · the bytes the channel received</span>
+<pre>15:48:42Z {"text":"*weave: The fleet is halted*
+           halted from the console — by gateway
+           → weave resume — or the Resume button on any page"}
+<span class="ok">…twelve minutes of watcher ticks: nothing further…</span>
+16:00:42Z (a NEW incident — exactly one more message)</pre>
+        </div>
+      </article>
+
+    </section>
+
+    <section class="strip" style="padding-bottom:var(--section-y-tablet)" data-od-id="day-footer">
+      <div class="row-between wrap" style="border-top:1px solid var(--border);padding-top:var(--space-6)">
+        <span class="meta">every claim behind these moments is enforced, stormed, and model-checked — <a class="hot" href="assurance.html">the assurance page</a> is the warranty card</span>
+        <span class="meta mono">weave tour · then weave dev</span>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
+    <div class="container-wide row-between wrap" style="max-width:1440px">
+      <span class="meta">weave · cooperative-agent harness · <span class="mono">v0.2.87</span></span>
+      <span class="meta"><a href="surfaces.html" class="hot">The surfaces</a> · <a href="index.html" class="hot">What is weave?</a></span>
+    </div>
+  </footer>
+</div>
+<script src="assets/hud.js"></script>
+</body>
+</html>
