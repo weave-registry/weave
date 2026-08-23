@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>weave · assurance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/hud.css" />
+<style>
+  .hero {
+    max-width: 1440px; margin-inline: auto;
+    padding: var(--space-12) var(--container-gutter-desktop) var(--space-8);
+  }
+  .hero h1 {
+    font-size: clamp(28px, 3.6vw, var(--text-3xl)); font-weight: 700; color: var(--fg);
+    letter-spacing: var(--tracking-display); line-height: 1.12; max-width: 24ch;
+  }
+  .hero .lede { max-width: 62ch; margin-top: var(--space-5); font-size: var(--text-lg); color: var(--fg-2); }
+
+  /* the live verdict — the one object on the page that is DATA, not prose */
+  .verdict {
+    margin-top: var(--space-6); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+    background: color-mix(in oklab, var(--success) 8%, var(--surface));
+    border: 1px solid color-mix(in oklab, var(--success) 40%, transparent);
+    border-radius: var(--radius-md); padding: var(--space-4) var(--space-5);
+    font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg);
+  }
+  .verdict .ok { color: var(--success); font-weight: 600; }
+
+  .strip { max-width: 1440px; margin-inline: auto; padding: 0 var(--container-gutter-desktop) var(--space-12); }
+  .claims { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-5); }
+  .claim {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3);
+  }
+  .claim h3 { font-size: var(--text-base); color: var(--fg); }
+  .claim p { font-size: var(--text-sm); color: var(--muted); }
+  .claim .how { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--meta); letter-spacing: 0.06em; text-transform: uppercase; }
+  .claim .bound { font-size: var(--text-xs); color: var(--warn); border-top: 1px solid var(--border-soft); padding-top: var(--space-3); }
+
+  .reprove {
+    background: color-mix(in oklab, var(--surface) 88%, var(--bg)); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); overflow-x: auto;
+  }
+  .reprove pre { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.9; color: var(--fg-2); white-space: pre; }
+  .reprove .c { color: var(--muted); }
+  @media (max-width: 900px) { .claims { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="field-bg" aria-hidden="true"></div>
+<div class="page">
+  <header class="topbar" data-od-id="topbar">
+    <a class="brandmark" href="surfaces.html">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" /><circle cx="12" cy="12" r="9" opacity="0.5" />
+        <path d="M12 3v3.8M12 17.2V21M3 12h3.8M17.2 12H21" />
+      </svg>
+      <span>weave<span class="sub" style="margin-left:8px">assurance</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Primary">
+      <a href="surfaces.html">Overview</a>
+      <a href="console.html">Console</a>
+      <a href="network.html">Swarm</a>
+      <a href="task-detail.html">Tasks</a>
+      <a href="plugins.html">Packs</a>
+      <a href="assurance.html" aria-current="page">Assurance</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="row" style="gap:var(--space-4)">
+      <a class="meta" href="index.html">What is weave?</a>
+      <span class="pill pill-ok"><span class="dot dot-live"></span> drill passing</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" data-od-id="assurance-hero">
+      <p class="eyebrow" style="margin-bottom:var(--space-4)">Standing proof</p>
+      <h1>Proven, not promised.</h1>
+      <p class="lede">
+        Every guarantee weave makes maps to enforcement that <em>runs</em> — seeded chaos storms
+        over real replicated substrates on every CI pass, byte-mutation fuzzing of every
+        hand-rolled wire parser, an exhaustive auth-boundary sweep, a long-horizon soak, and a
+        one-command acceptance drill against the live fleet. The drill writes its verdict into
+        the replicated log itself, so the proof travels with the fleet: any host answers
+        <span class="mono hot">weave drill --history</span>, and a node that joins tomorrow
+        inherits the record of every roll before it.
+      </p>
+      <div class="verdict" data-od-id="live-verdict">
+        <span class="ok">✓ drill PASSED</span>
+        <span>2026-08-23 15:24Z · v0.2.84</span>
+        <span>6 tasks · halt honored · all completed · exactly-once</span>
+        <span class="dim">claimed by max, bazzite · 51s</span>
+      </div>
+    </section>
+
+    <section class="strip" data-od-id="claims">
+      <div class="row-between wrap" style="margin-bottom:var(--space-5)">
+        <h2 style="font-size:var(--text-xl)">Seven claims, each with its enforcement.</h2>
+        <span class="meta">a claim without a row here is treated as unproven · boundaries stated, never hidden</span>
+      </div>
+      <div class="claims">
+        <article class="claim">
+          <span class="how">chaos storms · live drill</span>
+          <h3>A task settles exactly once</h3>
+          <p>Three real replicated substrates under seeded fault storms — partition flaps, restart storms, wobbly links. Any failure replays from a single seed.</p>
+          <p class="bound">Stated boundary: work fully run on both sides of an open partition dual-records; the folds still settle one winner identically on every host — asserted, not assumed.</p>
+        </article>
+        <article class="claim">
+          <span class="how">chaos · drill phase 1</span>
+          <h3>A halt reaches everything</h3>
+          <p>One appended event stops claiming on every host, including ones nobody can reach. Free local peers ride through cause-tagged stops; a failing backend halts itself and names the recovery verb.</p>
+        </article>
+        <article class="claim">
+          <span class="how">verdict-shared ceilings</span>
+          <h3>Budgets stop runaways — dollars and tokens</h3>
+          <p>Fleet-window, mid-burn per-task abort, fan-out tree bounds, per-schedule-run, and token ceilings all trip the same replicated halt. A $0 subscription turn still lands its full token weight.</p>
+        </article>
+        <article class="claim">
+          <span class="how">two-peer dedup · the soak</span>
+          <h3>Schedules fire exactly once per window</h3>
+          <p>Fleet-fired with no elected scheduler: every peer computes the same window, dedup lands one declaration. The soak samples a one-minute schedule for days; healthy is window-lag 0–1, forever.</p>
+        </article>
+        <article class="claim">
+          <span class="how">320-probe sweep</span>
+          <h3>The console has no unauthenticated side door</h3>
+          <p>Every path × method × bad credential lands in the closed set. Only liveness and the login door answer without credentials; refusals carry no detail; passkey ceremonies are exercised by a synthesized authenticator.</p>
+        </article>
+        <article class="claim">
+          <span class="how">seeded fuzz storms</span>
+          <h3>The wire parsers cannot be crashed from the network</h3>
+          <p>Bit flips, truncations, splices and noise over the CBOR, DNS-SD and chunked-transfer parsers: a value or a clean error, never a hang, never a structure that lies about itself.</p>
+        </article>
+        <article class="claim">
+          <span class="how">channel binding · convergence</span>
+          <h3>Replication is encrypted and converges</h3>
+          <p>TLS with secret-bound channel binding — an interloper without the secret cannot vouch for its certificate. After any partition heals, every host holds the same events.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="strip" style="padding-bottom:var(--section-y-tablet)" data-od-id="reprove">
+      <div class="row-between wrap" style="margin-bottom:var(--space-5)">
+        <h2 style="font-size:var(--text-xl)">Re-prove it yourself.</h2>
+        <span class="meta">the full claims→evidence map ships in-repo: <span class="mono">docs/ASSURANCE.md</span></span>
+      </div>
+      <div class="reprove">
+<pre>npm test                                  <span class="c"># 1,600+ tests incl. chaos, fuzz, sweep — every CI pass</span>
+WEAVE_CHAOS_SEEDS=25 …peer-loop.chaos     <span class="c"># widen the hunt; failures replay from their seed</span>
+weave drill                               <span class="c"># the live fleet, with a recorded verdict</span>
+weave drill --history                     <span class="c"># every verdict, from any host</span>
+./scripts/soak.sh status                  <span class="c"># the long horizon: lag 0–1, RSS plateau</span></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top:1px solid var(--border);padding-block:var(--space-6)" data-od-id="footer">
+    <div class="container-wide row-between wrap" style="max-width:1440px">
+      <span class="meta">weave · cooperative-agent harness · <span class="mono">v0.2.84</span></span>
+      <span class="meta"><a href="surfaces.html" class="hot">The surfaces</a> · <a href="index.html" class="hot">What is weave?</a></span>
+    </div>
+  </footer>
+</div>
+<script src="assets/hud.js"></script>
+<script>(function () { if (window.WeaveHUD && WeaveHUD.clock) { /* no clock element on this page — chrome stays static */ } })();</script>
+</body>
+</html>
