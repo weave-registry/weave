@@ -45,6 +45,23 @@
     border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
     background: color-mix(in oklab, var(--surface) 66%, var(--bg));
   }
+  /* THE INSTALL COMMAND. This page led with "Talk to your swarm" and never once said the word
+     install — the artifacts were public and reachable the whole time, with nothing anywhere
+     telling a visitor how to get them. It reads as a product fragment like everything else. */
+  .install {
+    display: flex; flex-direction: column; gap: var(--space-2);
+    padding: var(--space-4); border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface) 66%, var(--bg));
+  }
+  .install code {
+    font-family: var(--font-mono); font-size: var(--text-sm);
+    /* the command is long and must never widen the page on a phone */
+    overflow-wrap: anywhere;
+    /* one click selects the whole line — it exists to be copied */
+    user-select: all;
+  }
+  .install code::before { content: "$ "; color: var(--muted); user-select: none; }
   .feature h3 { margin-bottom: 6px; }
   .feature p { color: var(--muted); font-size: var(--text-sm); }
   .packtag {
@@ -142,8 +159,14 @@
               <a class="btn btn-primary" href="console.html">Open the console</a>
               <a class="btn" href="surfaces.html">See what needs you</a>
             </div>
+            <div class="install" style="margin-top:var(--space-6)" data-od-id="hero-install">
+              <span class="meta">Install — macOS or Linux, no account needed</span>
+              <code>curl -fsSL https://raw.githubusercontent.com/weave-registry/weave/main/install.sh | sh</code>
+              <span class="meta">Verifies the release checksum before it runs anything. Or take the installer
+                straight from the <a class="hot" href="https://github.com/weave-registry/weave/releases/latest">latest release</a>.</span>
+            </div>
             <p class="meta" style="margin-top:var(--space-5)">
-              <span class="mono">weave serve</span> · <span class="mono">weave pool --workers 4</span> ·
+              Then: <span class="mono">weave serve</span> · <span class="mono">weave pool --workers 4</span> ·
               <span class="mono">weave doctor</span>
             </p>
           </div>
@@ -456,6 +479,10 @@
           Two commands bring up the surface and the workers; three join a whole new machine.
           Everything else happens in the log — discovered, encrypted, exactly once.
         </p>
+        <div class="install" style="max-width:46ch;margin:0 auto var(--space-6);text-align:left" data-od-id="cta-install">
+          <span class="meta">Install</span>
+          <code>curl -fsSL https://raw.githubusercontent.com/weave-registry/weave/main/install.sh | sh</code>
+        </div>
         <div class="row" style="justify-content:center;gap:var(--space-3)">
           <a class="btn btn-primary" href="console.html">Open the console</a>
           <a class="btn" href="surfaces.html">Command surface</a>
@@ -468,9 +495,9 @@
     <div class="container-wide row-between wrap" style="max-width:1440px">
       <span class="meta">
         weave <span class="mono">v0.2.87</span> · MIT · © 2026 Gary Berger ·
-        <a class="hot" href="https://github.com/weave-registry/weave">gaberger/weave</a>
+        <a class="hot" href="https://github.com/weave-registry/weave">weave-registry/weave</a>
       </span>
-      <span class="meta">packs · <a class="hot mono" href="https://github.com/weave-registry/weave-labs">gaberger/weave-plugins</a></span>
+      <span class="meta">packs · <a class="hot mono" href="https://github.com/weave-registry/weave-labs">weave-registry/weave-labs</a></span>
     </div>
   </footer>
 </div>
