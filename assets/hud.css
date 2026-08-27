@@ -607,7 +607,24 @@ a.hot:hover, a.hot:focus-visible { text-decoration: underline; text-underline-of
   .app { height: auto; overflow: visible; }
   .workspace { grid-template-columns: 1fr !important; }
   .rail { border-right: 0; border-bottom: 1px solid var(--border); max-height: 320px; }
-  .mainnav { overflow-x: auto; }
+  /* `overflow-x: auto` alone did NOTHING here, and that is the whole bug. A flex or grid child has
+     `min-width: auto`, which floors it at its own content width — so the nav kept its full row of
+     links, the workspace column kept its widest panel, and the document grew past the viewport
+     instead. Every sub-page scrolled sideways on a phone (task-detail was 851px wide in a 390px
+     window, its heading clipped mid-word); index.html escaped only because it uses none of this
+     layout. Clearing the floor is what lets the scroll happen INSIDE the wide thing. */
+  .mainnav { overflow-x: auto; min-width: 0; scrollbar-width: none; }
+  .mainnav::-webkit-scrollbar { display: none; }
+  .workspace > * { min-width: 0; }
+  /* Single-line rows of buttons and pills are correct at desk width and run off the edge on a
+     phone. Wrapping beats scrolling for content this short — nothing ends up hidden. */
+  .row, .row-between { flex-wrap: wrap; }
+  /* The bar is a fixed 56px, so anything that wraps inside it lands on top of its neighbours
+     instead of pushing them down. Let it grow rather than collide. */
+  .topbar { height: auto; min-height: var(--topbar-h); flex-wrap: wrap; padding-block: var(--space-2); }
+  /* "Hold Space · push to talk" carries a hard min-width:150px and names a key a phone does not
+     have. It is desktop guidance; drop it rather than let it set the floor for the whole bar. */
+  #orb-caption { display: none; }
   .composer-inner { grid-template-columns: 1fr; }
   .orb-wrap { justify-self: start; }
   .msg { grid-template-columns: 1fr; gap: var(--space-2); }
